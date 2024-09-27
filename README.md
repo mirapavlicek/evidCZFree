@@ -44,3 +44,15 @@
 ## Použití
 
 Po spuštění aplikace mohou uživatelé přidávat nové položky majetku, upravovat existující záznamy, zobrazovat detaily o majetku, generovat odpisy a spravovat přihlášení.
+
+## Typy na závěr
+
+Pokud je potřeba naslouchat na všech IP adresách, je potřeba na řádku
+```c++
+listener.Prefixes.Add("http://localhost:8080/");
+#na
+listener.Prefixes.Add("http://+:<cisloportu>/");
+```
+
+Je tam navržené i přihlašování ze způsobu použití aplikace je to celkem nepotřebné. 
+Data jsou ukládány do JSON struktur a je možné je ručně editovat, překopírovat, atd... aplikace není závislá na databázy.
