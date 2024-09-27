@@ -41,11 +41,11 @@
         <table class="striped">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0, 'activeAssets')">Číslo majetku</th>
-                    <th onclick="sortTable(1, 'activeAssets')">Název</th>
-                    <th onclick="sortTable(2, 'activeAssets')">Datum pořízení</th>
-                    <th onclick="sortTable(3, 'activeAssets')">Pořizovací cena</th>
-                    <th onclick="sortTable(4, 'activeAssets')">Zůstatková cena</th>
+                    <th onclick="sortTable(0, 'activeAssets', 'asc')">Číslo majetku</th>
+                    <th onclick="sortTable(1, 'activeAssets', 'asc')">Název</th>
+                    <th onclick="sortTable(2, 'activeAssets', 'asc')">Datum pořízení</th>
+                    <th onclick="sortTable(3, 'activeAssets', 'asc')">Pořizovací cena</th>
+                    <th onclick="sortTable(4, 'activeAssets', 'asc')">Zůstatková cena</th>
                     <th>Akce</th>
                     <th>Odpisy</th>
                 </tr>
@@ -55,15 +55,22 @@
             </tbody>
         </table>
 
+        <!-- Stránkování pro aktivní majetek -->
+        <div class="pagination center-align">
+            <button class="btn" id="prevPageActive">Předchozí</button>
+            <span id="pageNumberActive">1</span>
+            <button class="btn" id="nextPageActive">Další</button>
+        </div>
+
         <!-- Seznam vyřazeného majetku -->
         <h5>Vyřazený majetek</h5>
         <table class="striped">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0, 'removedAssets')">Číslo majetku</th>
-                    <th onclick="sortTable(1, 'removedAssets')">Název</th>
-                    <th onclick="sortTable(2, 'removedAssets')">Datum vyřazení</th>
-                    <th onclick="sortTable(3, 'removedAssets')">Cena vyřazení</th>
+                    <th onclick="sortTable(0, 'removedAssets', 'asc')">Číslo majetku</th>
+                    <th onclick="sortTable(1, 'removedAssets', 'asc')">Název</th>
+                    <th onclick="sortTable(2, 'removedAssets', 'asc')">Datum vyřazení</th>
+                    <th onclick="sortTable(3, 'removedAssets', 'asc')">Cena vyřazení</th>
                     <th>Akce</th>
                 </tr>
             </thead>
@@ -71,10 +78,21 @@
                 <!-- Vyřazený majetek bude načten sem -->
             </tbody>
         </table>
+
+        <!-- Stránkování pro vyřazený majetek -->
+        <div class="pagination center-align">
+            <button class="btn" id="prevPageRemoved">Předchozí</button>
+            <span id="pageNumberRemoved">1</span>
+            <button class="btn" id="nextPageRemoved">Další</button>
+        </div>
     </div>
 
     <script src="/assets/js/materialize.min.js"></script>
     <script>
+        let currentPageActive = 1;
+        let currentPageRemoved = 1;
+        const rowsPerPage = 25;
+
         document.addEventListener('DOMContentLoaded', function () {
             fetch('http://localhost:8080/get-assets')
                 .then(response => response.json())
@@ -87,6 +105,9 @@
                         style: 'currency',
                         currency: 'CZK'
                     });
+
+                    let activeRows = [];
+                    let removedRows = [];
 
                     assets.forEach(asset => {
                         let row = document.createElement('tr');
@@ -110,7 +131,7 @@
                                         <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
                                         <td><a href="/generate-depreciation.html?assetNumber=${asset.assetNumber}" class="btn">Generuj odpisy</a></td>
                                     `;
-                            activeAssets.appendChild(row);
+                            activeRows.push(row);
                         } else {
                             // Vyřazený majetek (má disposalDate)
                             row.innerHTML = `
@@ -120,9 +141,17 @@
                                         <td>${disposalPriceFormatted}</td>
                                         <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
                                     `;
-                            removedAssets.appendChild(row);
+                            removedRows.push(row);
                         }
                     });
+
+                    // Nastavení stránkování pro aktivní a vyřazený majetek
+                    setupPagination(activeRows, 'activeAssets', 'pageNumberActive', 'prevPageActive', 'nextPageActive');
+                    setupPagination(removedRows, 'removedAssets', 'pageNumberRemoved', 'prevPageRemoved', 'nextPageRemoved');
+
+                    // Zobrazit první stránku
+                    displayPage(currentPageActive, activeRows, 'activeAssets');
+                    displayPage(currentPageRemoved, removedRows, 'removedAssets');
                 })
                 .catch(error => {
                     console.error('Chyba při načítání majetku:', error);
@@ -143,11 +172,13 @@
             return residualValue;
         }
 
-        // Funkce pro řazení tabulky
-        function sortTable(columnIndex, tableId) {
+        // Funkce pro řazení tabulky v obou směrech
+        function sortTable(columnIndex, tableId, currentDirection) {
             const table = document.getElementById(tableId);
             let rows = Array.from(table.rows);
-            const isNumeric = columnIndex === 3 || columnIndex === 4; // Řazení podle čísel (cena)
+            let direction = currentDirection === 'asc' ? 1 : -1; // Nastavení směru
+
+            const isNumeric = columnIndex === 3 || columnIndex === 4; // Řazení podle čísel (cena, zůstatková cena)
 
             rows.sort((a, b) => {
                 const cellA = a.cells[columnIndex].innerText.trim();
@@ -156,14 +187,58 @@
                 if (isNumeric) {
                     const numA = parseFloat(cellA.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
                     const numB = parseFloat(cellB.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
-                    return numA - numB;
+                    return (numA - numB) * direction;
                 } else {
-                    return cellA.localeCompare(cellB);
+                    return cellA.localeCompare(cellB, undefined, { numeric: true, sensitivity: 'base' }) * direction;
                 }
             });
 
-            // Přidání seřazených řádků zpět do tabulky
             rows.forEach(row => table.appendChild(row));
+
+            // Přepínání směru řazení
+            let newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+            const headers = document.querySelectorAll(`th[onclick^="sortTable(${columnIndex}, '${tableId}'"]`);
+            headers.forEach(header => {
+                header.setAttribute('onclick', `sortTable(${columnIndex}, '${tableId}', '${newDirection}')`);
+            });
+        }
+
+        // Stránkování
+        function displayPage(page, rows, tableBodyId) {
+            const start = (page - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const rowsToDisplay = rows.slice(start, end);
+
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = ''; // Vyprázdnit tabulku
+
+            rowsToDisplay.forEach(row => tableBody.appendChild(row));
+
+            document.getElementById(tableBodyId === 'activeAssets' ? 'pageNumberActive' : 'pageNumberRemoved').innerText = page;
+        }
+
+        function setupPagination(rows, tableBodyId, pageNumberId, prevPageId, nextPageId) {
+            const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+            document.getElementById(prevPageId).addEventListener('click', () => {
+                if (tableBodyId === 'activeAssets' && currentPageActive > 1) {
+                    currentPageActive--;
+                    displayPage(currentPageActive, rows, tableBodyId);
+                } else if (tableBodyId === 'removedAssets' && currentPageRemoved > 1) {
+                    currentPageRemoved--;
+                    displayPage(currentPageRemoved, rows, tableBodyId);
+                }
+            });
+
+            document.getElementById(nextPageId).addEventListener('click', () => {
+                if (tableBodyId === 'activeAssets' && currentPageActive < totalPages) {
+                    currentPageActive++;
+                    displayPage(currentPageActive, rows, tableBodyId);
+                } else if (tableBodyId === 'removedAssets' && currentPageRemoved < totalPages) {
+                    currentPageRemoved++;
+                    displayPage(currentPageRemoved, rows, tableBodyId);
+                }
+            });
         }
     </script>
 </body>
