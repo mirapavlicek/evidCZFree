@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seznam majetku</title>
+    <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <style>
+        .container {
+            margin-top: 50px;
+        }
+
+        h5 {
+            margin-top: 30px;
+            font-weight: bold;
+        }
+
+        th {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigační menu -->
+    <nav>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">Evidence majetku</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/">Seznam majetku</a></li>
+                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Seznam majetku -->
+    <div class="container">
+        <h1>Seznam majetku</h1>
+
+        <!-- Seznam aktivního majetku -->
+        <h5>Aktivní majetek</h5>
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0, 'activeAssets')">Číslo majetku</th>
+                    <th onclick="sortTable(1, 'activeAssets')">Název</th>
+                    <th onclick="sortTable(2, 'activeAssets')">Datum pořízení</th>
+                    <th onclick="sortTable(3, 'activeAssets')">Pořizovací cena</th>
+                    <th onclick="sortTable(4, 'activeAssets')">Zůstatková cena</th>
+                    <th>Akce</th>
+                    <th>Odpisy</th>
+                </tr>
+            </thead>
+            <tbody id="activeAssets">
+                <!-- Aktivní majetek bude načten sem -->
+            </tbody>
+        </table>
+
+        <!-- Seznam vyřazeného majetku -->
+        <h5>Vyřazený majetek</h5>
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0, 'removedAssets')">Číslo majetku</th>
+                    <th onclick="sortTable(1, 'removedAssets')">Název</th>
+                    <th onclick="sortTable(2, 'removedAssets')">Datum vyřazení</th>
+                    <th onclick="sortTable(3, 'removedAssets')">Cena vyřazení</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+            <tbody id="removedAssets">
+                <!-- Vyřazený majetek bude načten sem -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="/assets/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('http://localhost:8080/get-assets')
+                .then(response => response.json())
+                .then(assets => {
+                    const activeAssets = document.getElementById('activeAssets');
+                    const removedAssets = document.getElementById('removedAssets');
+
+                    // Formátovač pro českou měnu
+                    const currencyFormatter = new Intl.NumberFormat('cs-CZ', {
+                        style: 'currency',
+                        currency: 'CZK'
+                    });
+
+                    assets.forEach(asset => {
+                        let row = document.createElement('tr');
+
+                        const acquisitionDate = asset.acquisitionDate || '';
+                        const disposalDate = asset.disposalDate || '';
+                        const acquisitionCostFormatted = currencyFormatter.format(asset.acquisitionCost);
+                        const disposalPriceFormatted = asset.disposalPrice ? currencyFormatter.format(asset.disposalPrice) : 'Neznámá';
+
+                        // Výpočet zůstatkové ceny
+                        const residualValue = calculateResidualValue(asset);
+
+                        if (!disposalDate) {
+                            // Aktivní majetek (nemá disposalDate)
+                            row.innerHTML = `
+                                        <td>${asset.assetNumber}</td>
+                                        <td>${asset.name}</td>
+                                        <td>${acquisitionDate}</td>
+                                        <td>${acquisitionCostFormatted}</td>
+                                        <td>${currencyFormatter.format(residualValue)}</td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
+                                        <td><a href="/generate-depreciation.html?assetNumber=${asset.assetNumber}" class="btn">Generuj odpisy</a></td>
+                                    `;
+                            activeAssets.appendChild(row);
+                        } else {
+                            // Vyřazený majetek (má disposalDate)
+                            row.innerHTML = `
+                                        <td>${asset.assetNumber}</td>
+                                        <td>${asset.name}</td>
+                                        <td>${disposalDate}</td>
+                                        <td>${disposalPriceFormatted}</td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
+                                    `;
+                            removedAssets.appendChild(row);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Chyba při načítání majetku:', error);
+                });
+        });
+
+        // Výpočet zůstatkové ceny
+        function calculateResidualValue(asset) {
+            let residualValue = asset.acquisitionCost; // Počáteční hodnota je pořizovací cena
+            const currentYear = new Date().getFullYear();
+
+            asset.depreciations.forEach(depreciation => {
+                if (depreciation.year <= currentYear) {
+                    residualValue -= depreciation.amount;
+                }
+            });
+
+            return residualValue;
+        }
+
+        // Funkce pro řazení tabulky
+        function sortTable(columnIndex, tableId) {
+            const table = document.getElementById(tableId);
+            let rows = Array.from(table.rows);
+            const isNumeric = columnIndex === 3 || columnIndex === 4; // Řazení podle čísel (cena)
+
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].innerText.trim();
+                const cellB = b.cells[columnIndex].innerText.trim();
+
+                if (isNumeric) {
+                    const numA = parseFloat(cellA.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+                    const numB = parseFloat(cellB.replace(/[^\d,-]/g, '').replace(',', '.')) || 0;
+                    return numA - numB;
+                } else {
+                    return cellA.localeCompare(cellB);
+                }
+            });
+
+            // Přidání seřazených řádků zpět do tabulky
+            rows.forEach(row => table.appendChild(row));
+        }
+    </script>
+</body>
+</html>

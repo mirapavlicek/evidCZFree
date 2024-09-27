@@ -1,0 +1,660 @@
+﻿using System;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Serialization;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        string htmlFolder = Path.Combine(Directory.GetCurrentDirectory(), "html");
+        string jsonFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
+
+        // Zajištění existence složky s JSON soubory
+        if (!Directory.Exists(jsonFolder))
+        {
+            Directory.CreateDirectory(jsonFolder);
+        }
+
+        // Spuštění jednoduchého webového serveru
+        HttpListener listener = new HttpListener();
+        listener.Prefixes.Add("http://localhost:8080/");
+        listener.Start();
+        Console.WriteLine("Server is listening...");
+
+        while (true)
+        {
+            HttpListenerContext context = listener.GetContext();
+            HttpListenerRequest request = context.Request;
+            HttpListenerResponse response = context.Response;
+
+            // Dynamické načítání HTML souborů
+            if (request.HttpMethod == "GET" && request.Url.AbsolutePath.EndsWith(".html"))
+            {
+                ServeHtmlFile(request, response, htmlFolder);
+            }      
+            // Endpoint pro načtení konkrétního assetu podle assetNumber
+            else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/get-asset")
+            {
+                string assetNumber = request.QueryString["assetNumber"];
+                string filePath = Path.Combine(jsonFolder, $"{assetNumber}.json");
+
+                if (File.Exists(filePath))
+                {
+                    string json = File.ReadAllText(filePath);
+                    response.ContentType = "application/json";
+                    response.StatusCode = (int)HttpStatusCode.OK;
+                    using (var writer = new StreamWriter(response.OutputStream))
+                    {
+                        writer.Write(json);
+                    }
+                    response.OutputStream.Close();
+                }
+                else
+                {
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
+                    response.OutputStream.Close();
+                }
+            }
+            // Endpoint pro aktualizaci assetu s vyřazením
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/update-asset")
+            {
+                string assetNumber = request.QueryString["assetNumber"];
+                string filePath =
+
+             Path.Combine(jsonFolder, $"{assetNumber}.json");
+
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                        {
+                            string json = reader.ReadToEnd();
+
+                            // Přečteme JSON data a deserializujeme je
+                            Asset updatedData = JsonSerializer.Deserialize<Asset>(json, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+
+                            // Načteme stávající asset
+                            Asset existingAsset = JsonSerializer.Deserialize<Asset>(File.ReadAllText(filePath));
+
+                            // Aktualizujeme pole pro vyřazení
+                            existingAsset.DisposalMethod = updatedData.DisposalMethod;
+
+                            // Ošetříme datum a cenu vyřazení, pokud nejsou validní
+                            existingAsset.DisposalDate = string.IsNullOrWhiteSpace(updatedData.DisposalDate) ? null : updatedData.DisposalDate;
+
+                            // Zkontrolujeme, zda je disposalPrice platné číslo
+                            if (updatedData.DisposalPrice.HasValue)
+                            {
+                                existingAsset.DisposalPrice = updatedData.DisposalPrice;
+                            }
+                            else
+                            {
+                                existingAsset.DisposalPrice = null; // Pokud není platná hodnota, nastavíme null
+                            }
+
+                            existingAsset.DocumentNumber = updatedData.DocumentNumber;
+
+                            // Uložíme zpět do souboru
+                            File.WriteAllText(filePath, JsonSerializer.Serialize(existingAsset, new JsonSerializerOptions { WriteIndented = true }));
+
+                            // Odpověď OK
+                            response.StatusCode = (int)HttpStatusCode.OK;
+                            response.OutputStream.Close();
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+
+                        // Zpracování chyby při deserializaci
+                        Console.WriteLine("Chyba při deserializaci JSON: " + ex.Message);
+
+                        response.StatusCode = (int)HttpStatusCode.BadRequest;
+                        string responseString = "<html><body><h1>Chyba při zpracování JSON!</h1></body></html>";
+                        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+                        response.ContentLength64 = buffer.Length;
+                        response.OutputStream.Write(buffer, 0, buffer.Length);
+                        response.OutputStream.Close();
+                    }
+                }
+                else
+                {
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
+                    response.OutputStream.Close();
+                }
+            }
+            // Endpoint pro načtení unikátních výrobců a dodavatelů
+            else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/get-manufacturers-suppliers")
+            {
+                var data = GetManufacturersAndSuppliers(jsonFolder);
+                var json = JsonSerializer.Serialize(data);
+
+                // Nastavení odpovědi
+                response.ContentType = "application/json";
+                response.StatusCode = (int)HttpStatusCode.OK;
+                using (var writer = new StreamWriter(response.OutputStream))
+                {
+                    writer.Write(json);
+                }
+                response.OutputStream.Close();
+            }
+            // Načítání úvodní stránky (asset-list.html)
+            else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/")
+            {
+                Console.WriteLine("Načítání úvodní stránky...");
+
+                string htmlFilePath = Path.Combine(htmlFolder, "asset-list.html");
+
+                if (File.Exists(htmlFilePath))
+                {
+                    string html = File.ReadAllText(htmlFilePath, Encoding.UTF8);
+                    List<Asset> assets = LoadAllAssets(jsonFolder);
+
+         
+                    byte[] buffer = Encoding.UTF8.GetBytes(html);
+                    response.ContentLength64 = buffer.Length;
+                    response.OutputStream.Write(buffer, 0, buffer.Length);
+                    response.OutputStream.Close();
+                }
+                else
+                {
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
+                    string responseString = "<html><body><h1>Soubor nenalezen</h1></body></html>";
+                    byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+                    response.ContentLength64 = buffer.Length;
+                    response.OutputStream.Write(buffer, 0, buffer.Length);
+                    response.OutputStream.Close();
+                }
+            }
+            else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/get-assets")
+            {
+                var assets = GetAllAssets(jsonFolder);
+                var json = JsonSerializer.Serialize(assets);
+
+                // Nastavení odpovědi
+                response.ContentType = "application/json";
+                response.StatusCode = (int)HttpStatusCode.OK;
+                using (var writer = new StreamWriter(response.OutputStream))
+                {
+                    writer.Write(json);
+                }
+                response.OutputStream.Close();
+            }
+            // Obsluha formuláře pro přidávání nového majetku
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/add-item")
+            {
+                // Načtení všech stávajících majetků
+                List<Asset> assets = LoadAllAssets(jsonFolder);
+
+                // Získání dalšího čísla majetku
+                int nextAssetNumber = GetNextAssetNumber(assets);
+
+                // Načtení dat z POST požadavku
+                using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                {
+                    string json = reader.ReadToEnd();
+
+                    // Ladicí výpis JSON dat pro kontrolu
+                    Console.WriteLine("Přijatý JSON:");
+                    Console.WriteLine(json);
+                    try
+                    {
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true // Ignorování velikosti písmen
+                        };
+
+                        Asset newAsset = JsonSerializer.Deserialize<Asset>(json, options);
+
+
+                        
+
+                        // Ladicí výpis nového objektu pro kontrolu hodnot
+                        Console.WriteLine("Nový majetek:");
+                        Console.WriteLine($"Name: {newAsset.Name}");
+                        Console.WriteLine($"AssetType: {newAsset.AssetType}");
+                        Console.WriteLine($"DepreciationGroup: {newAsset.DepreciationGroup.GroupNumber}");
+                        Console.WriteLine($"DepreciationMethod: {newAsset.DepreciationMethod}");
+                        Console.WriteLine($"AcquisitionCost: {newAsset.AcquisitionCost}");
+
+                        if (newAsset != null)
+                    {
+
+                        // Přiřazení nového čísla majetku
+                        newAsset.AssetNumber = nextAssetNumber;
+
+                    // Uložení nového majetku jako JSON soubor
+                    string newAssetFilePath = Path.Combine(jsonFolder, $"{newAsset.AssetNumber}.json");
+                    File.WriteAllText(newAssetFilePath, JsonSerializer.Serialize(newAsset));
+
+                    // Odpověď na POST požadavek
+                    string responseString = "<html><body><h1>Položka byla úspěšně přidána!</h1></body></html>";
+                    byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+                    response.ContentLength64 = buffer.Length;
+                    response.OutputStream.Write(buffer, 0, buffer.Length);
+                    response.OutputStream.Close();
+                        }
+                        else
+                        {
+                            response.StatusCode = (int)HttpStatusCode.BadRequest;
+                            string responseString = "<html><body><h1>Neplatná data</h1></body></html>";
+                            byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+                            response.ContentLength64 = buffer.Length;
+                            response.OutputStream.Write(buffer, 0, buffer.Length);
+                            response.OutputStream.Close();
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+
+                        // Zpracování chyby při deserializaci
+                        Console.WriteLine("Chyba při deserializaci JSON: " + ex.Message);
+
+                        response.StatusCode = (int)HttpStatusCode.BadRequest;
+                        string responseString = "<html><body><h1>Chyba při zpracování JSON!</h1></body></html>";
+                        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+                        response.ContentLength64 = buffer.Length;
+                        response.OutputStream.Write(buffer, 0, buffer.Length);
+                        response.OutputStream.Close();
+                    }
+                }
+            }
+            // Dynamické načítání statických souborů (CSS, JS, fonty, obrázky)
+            else if (request.HttpMethod == "GET" && request.Url.AbsolutePath.StartsWith("/assets/"))
+            {
+                ServeStaticFile(request, response);
+            }
+            // Ostatní požadavky
+            else
+            {
+                try
+                {
+                    // Logika pro nalezení a vrácení obsahu
+
+                    // Pokud soubor neexistuje
+                    response.StatusCode = (int)HttpStatusCode.NotFound;
+                    string responseString = "<html><body><h1>Stránka nenalezena</h1></body></html>";
+                    byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+
+                    response.ContentLength64 = buffer.Length;
+
+                    // Zápis odpovědi do streamu
+                    response.OutputStream.Write(buffer, 0, buffer.Length);
+                }
+                catch (Exception ex)
+                {
+                    // Logika pro zpracování výjimek, pokud dojde k chybě
+                    Console.WriteLine("Chyba: " + ex.Message);
+                }
+                finally
+                {
+                    // Uzavření streamu, pokud není již uzavřený
+                    if (response.OutputStream != null && response.OutputStream.CanWrite)
+                    {
+                        response.OutputStream.Close();
+                    }
+                }
+            }
+        }
+    }
+
+    // Funkce pro obsluhu statických souborů (CSS, JS, fonty, obrázky)
+    public static void ServeStaticFile(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        // Získání cesty k souboru podle požadavku
+        string filePath = Path.Combine(Directory.GetCurrentDirectory(), request.Url.AbsolutePath.TrimStart('/'));
+
+        if (File.Exists(filePath))
+        {
+            // Nastavení MIME typu podle přípony souboru
+            string extension = Path.GetExtension(filePath).ToLower();
+            string mimeType = extension switch
+            {
+                ".css" => "text/css",
+                ".js" => "application/javascript",
+                ".woff2" => "font/woff2",
+                ".woff" => "font/woff",
+                ".ttf" => "font/ttf",
+                ".jpg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => "application/octet-stream" // Výchozí typ
+            };
+
+            byte[] fileData = File.ReadAllBytes(filePath);
+            response.ContentType = mimeType;
+            response.ContentLength64 = fileData.Length;
+            response.OutputStream.Write(fileData, 0, fileData.Length);
+            response.OutputStream.Close();
+        }
+        else
+        {
+            response.StatusCode = (int)HttpStatusCode.NotFound;
+            string responseString = "<html><body><h1>Soubor nenalezen</h1></body></html>";
+            byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            response.OutputStream.Write(buffer, 0, buffer.Length);
+            response.OutputStream.Close();
+        }
+    }
+    // Funkce pro načtení všech majetků z JSON souborů
+    static List<Asset> GetAllAssets(string folder)
+    {
+        var assets = new List<Asset>();
+
+        string[] files = Directory.GetFiles(folder, "*.json");
+
+        foreach (var file in files)
+        {
+            string json = File.ReadAllText(file);
+            Asset asset = JsonSerializer.Deserialize<Asset>(json);
+            assets.Add(asset);
+        }
+
+        return assets;
+    }
+
+    // Funkce pro obsluhu HTML souborů
+    public static void ServeHtmlFile(HttpListenerRequest request, HttpListenerResponse response, string htmlFolder)
+    {
+        // Získání cesty k HTML souboru podle požadavku
+        string filePath = Path.Combine(htmlFolder, request.Url.AbsolutePath.TrimStart('/'));
+
+        if (File.Exists(filePath))
+        {
+            byte[] fileData = File.ReadAllBytes(filePath);
+            response.ContentType = "text/html";
+            response.ContentLength64 = fileData.Length;
+            response.OutputStream.Write(fileData, 0, fileData.Length);
+            response.OutputStream.Close();
+        }
+        else
+        {
+            response.StatusCode = (int)HttpStatusCode.NotFound;
+            string responseString = "<html><body><h1>HTML soubor nenalezen</h1></body></html>";
+            byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            response.OutputStream.Write(buffer, 0, buffer.Length);
+            response.OutputStream.Close();
+        }
+    }
+
+    // Funkce pro načtení všech JSON souborů
+    static List<Asset> LoadAllAssets(string folder)
+    {
+        List<Asset> assets = new List<Asset>();
+        foreach (var file in Directory.GetFiles(folder, "*.json"))
+        {
+            string json = File.ReadAllText(file);
+            Asset asset = JsonSerializer.Deserialize<Asset>(json);
+            assets.Add(asset);
+        }
+        return assets;
+    }
+
+    // Funkce pro získání dalšího čísla majetku
+    static int GetNextAssetNumber(List<Asset> assets)
+    {
+        if (assets.Count == 0) return 1;
+        return assets.Max(a => a.AssetNumber) + 1;
+    }
+
+
+    // Funkce pro načtení výrobců a dodavatelů z JSON souborů
+    static ManufacturersAndSuppliers GetManufacturersAndSuppliers(string folder)
+    {
+        var manufacturers = new HashSet<string>();
+        var suppliers = new HashSet<string>();
+
+        string[] files = Directory.GetFiles(folder, "*.json");
+
+        foreach (var file in files)
+        {
+            string json = File.ReadAllText(file);
+            Asset asset = JsonSerializer.Deserialize<Asset>(json);
+
+            if (!string.IsNullOrEmpty(asset.Manufacturer))
+            {
+                manufacturers.Add(asset.Manufacturer);
+            }
+
+            if (!string.IsNullOrEmpty(asset.Supplier))
+            {
+                suppliers.Add(asset.Supplier);
+            }
+        }
+
+        return new ManufacturersAndSuppliers
+        {
+            Manufacturers = manufacturers.ToList(),
+            Suppliers = suppliers.ToList()
+        };
+    }
+
+
+    public class DepreciationRate
+    {
+        public int GroupNumber { get; set; }
+        public decimal FirstYearRate { get; set; }
+        public decimal FollowingYearsRate { get; set; }
+        public decimal IncreasedRate { get; set; }
+    }
+
+    // Statická tabulka pro rovnoměrné odpisy
+    public static List<DepreciationRate> DepreciationRates = new List<DepreciationRate>
+{
+    new DepreciationRate { GroupNumber = 1, FirstYearRate = 20, FollowingYearsRate = 40, IncreasedRate = 33.3M },
+    new DepreciationRate { GroupNumber = 2, FirstYearRate = 11, FollowingYearsRate = 22.25M, IncreasedRate = 20 },
+    new DepreciationRate { GroupNumber = 3, FirstYearRate = 5.5M, FollowingYearsRate = 10.5M, IncreasedRate = 10 },
+    new DepreciationRate { GroupNumber = 4, FirstYearRate = 2.15M, FollowingYearsRate = 5.15M, IncreasedRate = 5 },
+    new DepreciationRate { GroupNumber = 5, FirstYearRate = 1.4M, FollowingYearsRate = 3.4M, IncreasedRate = 3.4M },
+    new DepreciationRate { GroupNumber = 6, FirstYearRate = 1.02M, FollowingYearsRate = 2.02M, IncreasedRate = 2 }
+};
+
+    public void GenerateDepreciations(Asset asset)
+    {
+        // Najdi odpovídající odpisové sazby pro zvolenou skupinu
+        var depreciationRate = DepreciationRates.FirstOrDefault(r => r.GroupNumber == asset.DepreciationGroup.GroupNumber);
+        if (depreciationRate == null) return;  // Pokud není nalezena odpisová sazba, skončíme
+
+        int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
+        int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
+
+        // Výpočet odpisů pro první rok
+        decimal firstYearDepreciation = asset.AcquisitionCost * depreciationRate.FirstYearRate / 100;
+        asset.Depreciations.Add(new Depreciation
+        {
+            Year = startingYear,
+            Amount = firstYearDepreciation
+        });
+
+        // Výpočet odpisů pro následující roky
+        for (int i = 1; i < yearsOfDepreciation; i++)
+        {
+            decimal yearlyDepreciation = asset.AcquisitionCost * depreciationRate.FollowingYearsRate / 100;
+            asset.Depreciations.Add(new Depreciation
+            {
+                Year = startingYear + i,
+                Amount = yearlyDepreciation
+            });
+        }
+    }
+
+    public class AcceleratedDepreciationRate
+    {
+        public int GroupNumber { get; set; }
+        public decimal FirstYearCoefficient { get; set; }
+        public decimal FollowingYearsCoefficient { get; set; }
+        public decimal IncreasedRate { get; set; }
+    }
+
+    // Statická tabulka pro zrychlené odpisy
+    public static List<AcceleratedDepreciationRate> AcceleratedDepreciationRates = new List<AcceleratedDepreciationRate>
+{
+    new AcceleratedDepreciationRate { GroupNumber = 1, FirstYearCoefficient = 3, FollowingYearsCoefficient = 4, IncreasedRate = 3 },
+    new AcceleratedDepreciationRate { GroupNumber = 2, FirstYearCoefficient = 5, FollowingYearsCoefficient = 6, IncreasedRate = 5 },
+    new AcceleratedDepreciationRate { GroupNumber = 3, FirstYearCoefficient = 10, FollowingYearsCoefficient = 11, IncreasedRate = 10 },
+    new AcceleratedDepreciationRate { GroupNumber = 4, FirstYearCoefficient = 20, FollowingYearsCoefficient = 21, IncreasedRate = 20 },
+    new AcceleratedDepreciationRate { GroupNumber = 5, FirstYearCoefficient = 30, FollowingYearsCoefficient = 31, IncreasedRate = 30 },
+    new AcceleratedDepreciationRate { GroupNumber = 6, FirstYearCoefficient = 50, FollowingYearsCoefficient = 51, IncreasedRate = 50 }
+};
+
+    public void GenerateAcceleratedDepreciations(Asset asset)
+    {
+        // Najdi odpovídající koeficienty pro zvolenou skupinu
+        var depreciationRate = AcceleratedDepreciationRates.FirstOrDefault(r => r.GroupNumber == asset.DepreciationGroup.GroupNumber);
+        if (depreciationRate == null) return;  // Pokud není nalezena odpisová sazba, skončíme
+
+        int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
+        int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
+        decimal remainingValue = asset.AcquisitionCost;
+
+        // Výpočet odpisů pro první rok
+        decimal firstYearDepreciation = asset.AcquisitionCost / depreciationRate.FirstYearCoefficient;
+        asset.Depreciations.Add(new Depreciation
+        {
+            Year = startingYear,
+            Amount = firstYearDepreciation
+        });
+
+        // Snížení zůstatkové ceny
+        remainingValue -= firstYearDepreciation;
+
+        // Výpočet odpisů pro další roky
+        for (int i = 1; i < yearsOfDepreciation; i++)
+        {
+            decimal yearlyDepreciation = (2 * remainingValue) / (depreciationRate.FollowingYearsCoefficient - i);
+            asset.Depreciations.Add(new Depreciation
+            {
+                Year = startingYear + i,
+                Amount = yearlyDepreciation
+            });
+
+            // Aktualizace zůstatkové ceny
+            remainingValue -= yearlyDepreciation;
+        }
+    }
+}
+
+// Struktura pro vracení výrobců a dodavatelů
+public class ManufacturersAndSuppliers
+{
+    public List<string> Manufacturers { get; set; }
+    public List<string> Suppliers { get; set; }
+}
+
+
+
+
+public class Asset
+{
+    [JsonPropertyName("assetNumber")]
+    public int AssetNumber { get; set; } // Unikátní číslo majetku
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    [JsonPropertyName("assetType")]
+    public string AssetType { get; set; }
+
+    [JsonPropertyName("depreciationGroup")]
+    public DepreciationGroup DepreciationGroup { get; set; }
+
+    [JsonPropertyName("depreciationMethod")]
+    public string DepreciationMethod { get; set; }
+
+    [JsonPropertyName("acquisitionCost")]
+    public decimal AcquisitionCost { get; set; }
+
+    [JsonPropertyName("taxValue")]
+    public decimal? TaxValue { get; set; }
+
+    [JsonPropertyName("accountingValue")]
+    public decimal? AccountingValue { get; set; }
+
+    [JsonPropertyName("acquisitionDate")]
+    public string AcquisitionDate { get; set; }
+
+    [JsonPropertyName("commissioningDate")]
+    public string CommissioningDate { get; set; }
+
+    [JsonPropertyName("warrantyPeriod")]
+    public int? WarrantyPeriod { get; set; }
+
+    [JsonPropertyName("serialNumber")]
+    public string SerialNumber { get; set; }
+
+    [JsonPropertyName("partNumber")]
+    public string PartNumber { get; set; }
+
+    [JsonPropertyName("manufacturer")]
+    public string Manufacturer { get; set; }
+
+    [JsonPropertyName("supplier")]
+    public string Supplier { get; set; }
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; }
+
+    // Nové vlastnosti pro vyřazení majetku
+    [JsonPropertyName("disposalMethod")]
+    public string DisposalMethod { get; set; } // Způsob vyřazení (prodej, likvidace, převod)
+
+    [JsonPropertyName("disposalDate")]
+    public string DisposalDate { get; set; } // Datum vyřazení
+
+    [JsonPropertyName("disposalPrice")]
+    public decimal? DisposalPrice { get; set; } // Cena vyřazení
+
+    [JsonPropertyName("documentNumber")]
+    public string DocumentNumber { get; set; } // Číslo dokladu
+
+    [JsonPropertyName("depreciations")]
+    public List<Depreciation> Depreciations { get; set; } = new List<Depreciation>();  // Seznam pro více řádků odpisů
+
+
+// Konstruktor pro volitelné hodnoty
+public Asset()
+    {
+        WarrantyPeriod = null;
+        PartNumber = null;
+        Supplier = null;
+        Description = null;
+        DisposalMethod = null;
+        DisposalDate = null;
+        DisposalPrice = null;
+        DocumentNumber = null;
+        Depreciations = null
+    }
+}
+
+public class Depreciation
+{
+    [JsonPropertyName("year")]
+    public int Year { get; set; }
+
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
+}
+
+// Třída pro DepreciationGroup
+public class DepreciationGroup
+{
+    [JsonPropertyName("groupNumber")]
+    public int GroupNumber { get; set; }
+
+    [JsonPropertyName("groupName")]
+    public string GroupName { get; set; }
+
+    [JsonPropertyName("depreciationLength")]
+    public int DepreciationLength { get; set; }
+}
+
+

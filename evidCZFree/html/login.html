@@ -1,0 +1,55 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Přihlášení</title>
+    <link href="/assets/css/materialize.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Přihlášení</h1>
+        <form id="loginForm">
+            <div class="input-field">
+                <input id="username" type="text" class="validate" required>
+                <label for="username">Uživatelské jméno</label>
+            </div>
+
+            <div class="input-field">
+                <input id="password" type="password" class="validate" required>
+                <label for="password">Heslo</label>
+            </div>
+
+            <button class="btn waves-effect waves-light" type="submit">Přihlásit</button>
+        </form>
+
+        <div id="errorMessage" class="red-text"></div>
+    </div>
+
+    <script src="/assets/js/materialize.min.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const loginData = { username, password };
+
+            fetch('http://localhost:8080/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(loginData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/'; // Přesměrování po úspěšném přihlášení
+                } else {
+                    document.getElementById('errorMessage').innerText = 'Neplatné jméno nebo heslo';
+                }
+            })
+            .catch(error => console.error('Chyba při přihlášení:', error));
+        });
+    </script>
+</body>
+</html>

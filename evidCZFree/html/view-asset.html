@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zobrazit majetek</title>
+    <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <style>
+        h5 {
+            margin-top: 30px;
+            font-weight: bold;
+        }
+
+        .input-field label {
+            font-size: 1.1em;
+        }
+
+        .card {
+            padding: 20px;
+        }
+
+        .btn-large {
+            margin-top: 20px;
+        }
+
+        .input-field.col.s9 label {
+            width: 75%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigační menu -->
+    <nav>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">Evidence majetku</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Formulář pro zobrazení majetku -->
+    <div class="container">
+        <h1>Detail majetku</h1>
+
+        <!-- Karta pro základní informace o majetku -->
+        <div class="card">
+            <h5>Základní informace</h5>
+
+            <form id="viewAssetForm">
+                <div class="row">
+                    <div class="input-field col s9">
+                        <input id="name" type="text" class="validate" readonly>
+                        <label for="name">Název majetku</label>
+                    </div>
+                    <div class="input-field col s3">
+                        <input id="acquisitionDate" type="text" class="datepicker" readonly>
+                        <label for="acquisitionDate">Datum pořízení</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s6">
+                        <input id="manufacturer" type="text" class="validate" readonly>
+                        <label for="manufacturer">Výrobce</label>
+                    </div>
+                    <div class="input-field col s6">
+                        <input id="supplier" type="text" class="validate" readonly>
+                        <label for="supplier">Dodavatel</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s4">
+                        <input id="acquisitionCost" type="text" class="validate" readonly>
+                        <label for="acquisitionCost">Pořizovací cena (Kč)</label>
+                    </div>
+                    <div class="input-field col s4">
+                        <input id="accountingValue" type="text" class="validate" readonly>
+                        <label for="accountingValue">Účetní cena (Kč)</label>
+                    </div>
+                    <div class="input-field col s4">
+                        <input id="taxValue" type="text" class="validate" readonly>
+                        <label for="taxValue">Daňová cena (Kč)</label>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <textarea id="description" class="materialize-textarea" readonly></textarea>
+                    <label for="description">Popis</label>
+                </div>
+
+                <!-- Karta pro informace o vyřazení majetku -->
+                <div class="card">
+                    <h5>Vyřazení majetku</h5>
+
+                    <div class="row">
+                        <div class="input-field col s6">
+                            <select id="disposalMethod">
+                                <option value="" disabled selected>Vyber způsob vyřazení</option>
+                                <option value="prodej">Prodej</option>
+                                <option value="likvidace">Likvidace</option>
+                                <option value="prevod">Převod</option>
+                            </select>
+                            <label for="disposalMethod">Způsob vyřazení</label>
+                        </div>
+
+                        <div class="input-field col s6">
+                            <input id="disposalDate" type="text" class="datepicker">
+                            <label for="disposalDate">Datum vyřazení</label>
+                        </div>
+                    </div>
+
+                    <div class="input-field">
+                        <input id="disposalPrice" type="text" class="validate">
+                        <label for="disposalPrice">Cena vyřazení (Kč)</label>
+                    </div>
+
+                    <div class="input-field">
+                        <input id="documentNumber" type="text" class="validate">
+                        <label for="documentNumber">Číslo dokladu</label>
+                    </div>
+                </div>
+
+                <!-- Tlačítko na uložení změn -->
+                <button class="btn-large waves-effect waves-light" type="submit">
+                    <i class="material-icons left">save</i>Uložit změny
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/assets/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var dateElems = document.querySelectorAll('.datepicker');
+            M.Datepicker.init(dateElems, {
+                format: 'dd/mm/yyyy'
+            });
+
+            var selectElems = document.querySelectorAll('select');
+            M.FormSelect.init(selectElems);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const assetNumber = urlParams.get('assetNumber');
+
+            if (assetNumber) {
+                fetchAssetDetails(assetNumber);
+            }
+
+            function fetchAssetDetails(assetNumber) {
+                fetch(`http://localhost:8080/get-asset?assetNumber=${assetNumber}`)
+                    .then(response => response.json())
+                    .then(asset => {
+                        document.getElementById('name').value = asset.name;
+                        document.getElementById('acquisitionDate').value = asset.acquisitionDate;
+                        document.getElementById('acquisitionCost').value = asset.acquisitionCost;
+                        document.getElementById('manufacturer').value = asset.manufacturer;
+                        document.getElementById('description').value = asset.description;
+                        document.getElementById('supplier').value = asset.supplier;
+                        document.getElementById('accountingValue').value = asset.accountingValue;
+                        document.getElementById('taxValue').value = asset.taxValue;
+
+                        if (asset.disposalMethod) {
+                            document.getElementById('disposalMethod').value = asset.disposalMethod;
+                        }
+                        if (asset.disposalDate) {
+                            document.getElementById('disposalDate').value = asset.disposalDate;
+                        }
+                        if (asset.disposalPrice) {
+                            document.getElementById('disposalPrice').value = asset.disposalPrice;
+                        }
+                        if (asset.documentNumber) {
+                            document.getElementById('documentNumber').value = asset.documentNumber;
+                        }
+
+                        M.updateTextFields();
+                    })
+                    .catch(error => console.error('Chyba při načítání majetku:', error));
+            }
+
+            // Přidání listeneru k formuláři
+            document.getElementById('viewAssetForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const assetNumber = urlParams.get('assetNumber');
+
+                // Ošetříme disposalPrice před odesláním - převod na číslo
+                let disposalPriceValue = document.getElementById('disposalPrice').value.trim();
+                disposalPriceValue = disposalPriceValue ? parseFloat(disposalPriceValue) : null;
+
+                const updatedData = {
+                    disposalMethod: document.getElementById('disposalMethod').value || null,
+                    disposalDate: document.getElementById('disposalDate').value || null,
+                    disposalPrice: disposalPriceValue, // Převedeno na číslo nebo null
+                    documentNumber: document.getElementById('documentNumber').value || null
+                };
+
+                fetch(`http://localhost:8080/update-asset?assetNumber=${assetNumber}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Změny byly úspěšně uloženy!');
+                    } else {
+                        alert('Došlo k chybě při ukládání změn.');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

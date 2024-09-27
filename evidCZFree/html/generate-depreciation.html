@@ -1,0 +1,118 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generovat odpisy</title>
+    <link href="/assets/css/materialize.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigační menu -->
+    <nav>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">Evidence majetku</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/">Seznam majetku</a></li>
+                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Kontejner pro základní informace o majetku -->
+    <div class="container">
+        <h1>Generovat odpisy</h1>
+
+        <!-- Základní informace o majetku -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" id="assetName">Název majetku</span>
+                <p>Odpisová kategorie: <span id="depreciationGroup"></span></p>
+                <p>Druh odpisu: <span id="depreciationMethod"></span></p>
+                <p>Počet let odpisování: <span id="depreciationLength"></span></p>
+                <p>Vstupní cena: <span id="acquisitionCost"></span> Kč</p>
+                <p>Daňová cena: <span id="taxValue"></span> Kč</p>
+                <p>Účetní cena: <span id="accountingValue"></span> Kč</p>
+            </div>
+        </div>
+
+        <!-- Tlačítko pro vygenerování odpisů -->
+        <div class="card-action">
+            <button id="generateDepreciationsBtn" class="btn waves-effect waves-light" onclick="generateDepreciations()">Generuj odpisy</button>
+        </div>
+
+        <!-- Tabulka pro zobrazení odpisů -->
+        <table class="striped">
+            <thead>
+                <tr>
+                    <th>Rok</th>
+                    <th>Odpisovaná částka (Kč)</th>
+                </tr>
+            </thead>
+            <tbody id="depreciationsTable">
+                <!-- Odpisy budou načteny sem -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="/assets/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Získání ID majetku z URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const assetNumber = urlParams.get('assetNumber');
+            loadAssetData(assetNumber);
+        });
+
+        // Načíst data majetku z JSON a naplnit stránku
+        function loadAssetData(assetNumber) {
+            fetch(`http://localhost:8080/get-asset?assetNumber=${assetNumber}`)
+                .then(response => response.json())
+                .then(asset => {
+                    // Naplnění základních informací
+                    document.getElementById('assetName').innerText = asset.name;
+                    document.getElementById('depreciationGroup').innerText = asset.depreciationGroup.groupName;
+                    document.getElementById('depreciationMethod').innerText = asset.depreciationMethod;
+                    document.getElementById('depreciationLength').innerText = asset.depreciationGroup.depreciationLength;
+                    document.getElementById('acquisitionCost').innerText = asset.acquisitionCost;
+                    document.getElementById('taxValue').innerText = asset.taxValue || 'N/A';
+                    document.getElementById('accountingValue').innerText = asset.accountingValue || 'N/A';
+
+                    // Pokud již jsou odpisy vygenerovány, zobrazit je
+                    if (asset.depreciations && asset.depreciations.length > 0) {
+                        displayDepreciations(asset.depreciations);
+                        document.getElementById('generateDepreciationsBtn').disabled = true;  // Deaktivace tlačítka
+                    }
+                })
+                .catch(error => console.error('Chyba při načítání dat majetku:', error));
+        }
+
+        // Funkce pro zobrazení odpisů
+        function displayDepreciations(depreciations) {
+            const tableBody = document.getElementById('depreciationsTable');
+            depreciations.forEach(depreciation => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${depreciation.year}</td><td>${depreciation.amount}</td>`;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Funkce pro vygenerování odpisů
+        function generateDepreciations() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const assetNumber = urlParams.get('assetNumber');
+
+            fetch(`http://localhost:8080/generate-depreciations?assetNumber=${assetNumber}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayDepreciations(data.depreciations);  // Zobrazit nově vygenerované odpisy
+                    document.getElementById('generateDepreciationsBtn').disabled = true;  // Deaktivace tlačítka
+                }
+            })
+            .catch(error => console.error('Chyba při generování odpisů:', error));
+        }
+    </script>
+</body>
+</html>

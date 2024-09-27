@@ -1,0 +1,73 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="assets\fonts\**" />
+    <Compile Remove="assets\font\**" />
+    <EmbeddedResource Remove="assets\fonts\**" />
+    <EmbeddedResource Remove="assets\font\**" />
+    <None Remove="assets\fonts\**" />
+    <None Remove="assets\font\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="assets\css\materialize.css" />
+    <None Remove="assets\css\materialize.min.css" />
+    <None Remove="assets\js\jquery-2.1.1-vsdoc.js" />
+    <None Remove="assets\js\jquery-2.1.1.js" />
+    <None Remove="assets\js\jquery-2.1.1.min.map" />
+    <None Remove="assets\js\jquery.min.js" />
+    <None Remove="assets\js\materialize.js" />
+    <None Remove="assets\js\materialize.min.js" />
+    <None Remove="html\add-item-form.html" />
+    <None Remove="html\asset-list.html" />
+    <None Remove="html\backup.txt" />
+    <None Remove="html\generate-depreciation.html" />
+    <None Remove="html\login.html" />
+    <None Remove="html\view-asset.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\js\materialize.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="assets\js\materialize.min.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\css\materialize.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="assets\css\materialize.min.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="html\add-item-form.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="html\asset-list.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="html\generate-depreciation.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="html\login.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="html\view-asset.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+  </ItemGroup>
+
+</Project>

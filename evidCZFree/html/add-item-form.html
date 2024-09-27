@@ -1,0 +1,240 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Přidat nový majetek</title>
+    <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <style>
+        .input-field.col.s9 label {
+            width: 75%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigační menu -->
+    <nav>
+        <div class="nav-wrapper">
+            <a href="/" class="brand-logo">Evidence majetku</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/">Seznam majetku</a></li>
+                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Formulář pro přidání nového majetku -->
+    <div class="container">
+        <h1>Přidat nový majetek</h1>
+        <form id="assetForm">
+            <!-- Název majetku a Datum pořízení (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s9">
+                    <input id="name" type="text" class="validate" required>
+                    <label for="name">Název majetku</label>
+                </div>
+                <div class="input-field col s3">
+                    <input id="acquisitionDate" type="text" class="datepicker" required>
+                    <label for="acquisitionDate">Datum pořízení</label>
+                </div>
+            </div>
+
+            <!-- Typ majetku, Odpisová skupina a Způsob odpisování (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s4">
+                    <select id="assetType" required>
+                        <option value="hmotný" selected>Hmotný</option>
+                        <option value="nehmotný">Nehmotný</option>
+                    </select>
+                    <label for="assetType">Typ majetku</label>
+                </div>
+                <div class="input-field col s4">
+                    <select id="depreciationGroup" required>
+                        <option value="" disabled selected>Vyber odpisovou skupinu</option>
+                        <option value='{"groupNumber":1,"groupName":"Notebooky, nářadí, kancelářská technika","depreciationLength":3}'>
+                            1 - Notebooky, nářadí, kancelářská technika (3 roky)
+                        </option>
+                        <option value='{"groupNumber":2,"groupName":"Osobní a nákladní auta, nábytek, TV","depreciationLength":5}'>
+                            2 - Osobní a nákladní auta, nábytek, TV (5 let)
+                        </option>
+                        <option value='{"groupNumber":3,"groupName":"Výrobní stroje, kotle, vytápění","depreciationLength":10}'>
+                            3 - Výrobní stroje, kotle, vytápění (10 let)
+                        </option>
+                        <option value='{"groupNumber":4,"groupName":"Budovy ze dřeva, plynovody","depreciationLength":20}'>
+                            4 - Budovy ze dřeva, plynovody (20 let)
+                        </option>
+                        <option value='{"groupNumber":5,"groupName":"Výrobní budovy, mosty, silnice","depreciationLength":30}'>
+                            5 - Výrobní budovy, mosty, silnice (30 let)
+                        </option>
+                        <option value='{"groupNumber":6,"groupName":"Administrativní budovy, kulturní památky","depreciationLength":50}'>
+                            6 - Administrativní budovy, kulturní památky (50 let)
+                        </option>
+                    </select>
+                    <label for="depreciationGroup">Odpisová skupina</label>
+                </div>
+                <div class="input-field col s4">
+                    <select id="depreciationMethod" required>
+                        <option value="" disabled selected>Vyber způsob odpisování</option>
+                        <option value="rovnoměrný">Rovnoměrný</option>
+                        <option value="zrychlený">Zrychlený</option>
+                        <option value="leasing">Leasing</option>
+                        <option value="bez_odpisů">Bez odpisů</option>
+                    </select>
+                    <label for="depreciationMethod">Způsob odpisování</label>
+                </div>
+            </div>
+
+            <!-- Pořizovací cena, Vstupní cena daňová a účetní (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s4">
+                    <input id="acquisitionCost" type="number" class="validate" required>
+                    <label for="acquisitionCost">Pořizovací cena (Kč)</label>
+                </div>
+                <div class="input-field col s4">
+                    <input id="taxValue" type="number" class="validate">
+                    <label for="taxValue">Vstupní cena daňová</label>
+                </div>
+                <div class="input-field col s4">
+                    <input id="accountingValue" type="number" class="validate">
+                    <label for="accountingValue">Vstupní cena účetní</label>
+                </div>
+            </div>
+
+            <!-- Datum uvedení do provozu a Délka záruky (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s6">
+                    <input id="commissioningDate" type="text" class="datepicker" required>
+                    <label for="commissioningDate">Datum uvedení do provozu</label>
+                </div>
+                <div class="input-field col s6">
+                    <input id="warrantyPeriod" type="number" class="validate">
+                    <label for="warrantyPeriod">Délka záruky (v měsících)</label>
+                </div>
+            </div>
+
+            <!-- Sériové číslo a Part number (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s6">
+                    <input id="serialNumber" type="text" class="validate" required>
+                    <label for="serialNumber">Sériové číslo</label>
+                </div>
+                <div class="input-field col s6">
+                    <input id="partNumber" type="text" class="validate">
+                    <label for="partNumber">Part number</label>
+                </div>
+            </div>
+
+            <!-- Výrobce a Dodavatel (společný řádek) -->
+            <div class="row">
+                <div class="input-field col s6">
+                    <input id="manufacturer" list="manufacturerList" type="text" class="validate" required>
+                    <label for="manufacturer">Výrobce</label>
+                    <datalist id="manufacturerList">
+                        <!-- Dynamicky načtené možnosti výrobců -->
+                    </datalist>
+                </div>
+                <div class="input-field col s6">
+                    <input id="supplier" list="supplierList" type="text" class="validate">
+                    <label for="supplier">Dodavatel</label>
+                    <datalist id="supplierList">
+                        <!-- Dynamicky načtené možnosti dodavatelů -->
+                    </datalist>
+                </div>
+            </div>
+
+            <!-- Popis -->
+            <div class="input-field">
+                <textarea id="description" class="materialize-textarea"></textarea>
+                <label for="description">Popis</label>
+            </div>
+
+            <!-- Tlačítko odeslat -->
+            <button class="btn waves-effect waves-light" type="submit">Odeslat</button>
+        </form>
+    </div>
+
+    <script src="/assets/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var elems = document.querySelectorAll('select');
+            M.FormSelect.init(elems);
+
+            var dateElems = document.querySelectorAll('.datepicker');
+            M.Datepicker.init(dateElems, {
+                format: 'dd/mm/yyyy'
+            });
+
+            // Načíst existující výrobce a dodavatele z JSON souborů
+            fetchManufacturersAndSuppliers();
+        });
+
+        function fetchManufacturersAndSuppliers() {
+            fetch('http://localhost:8080/get-manufacturers-suppliers')
+                .then(response => response.json())
+                .then(data => {
+                    const manufacturerList = document.getElementById('manufacturerList');
+                    const supplierList = document.getElementById('supplierList');
+
+                    // Přidat unikátní výrobce a dodavatele do datalistu
+                    if (data.Manufacturers) {
+                        data.Manufacturers.forEach(manufacturer => {
+                            const option = document.createElement('option');
+                            option.value = manufacturer;
+                            manufacturerList.appendChild(option);
+                        });
+                    }
+
+                    if (data.Suppliers) {
+                        data.Suppliers.forEach(supplier => {
+                            const option = document.createElement('option');
+                            option.value = supplier;
+                            supplierList.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => console.error('Chyba při načítání výrobců a dodavatelů:', error));
+        }
+
+        document.getElementById('assetForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const acquisitionCost = parseFloat(document.getElementById('acquisitionCost').value);
+            const depreciationGroup = JSON.parse(document.getElementById('depreciationGroup').value);
+
+            // Zkontrolovat, zda je daňová a účetní cena vyplněná, pokud ne, převzít pořizovací cenu
+            const taxValue = document.getElementById('taxValue').value ? parseFloat(document.getElementById('taxValue').value) : acquisitionCost;
+            const accountingValue = document.getElementById('accountingValue').value ? parseFloat(document.getElementById('accountingValue').value) : acquisitionCost;
+
+            const asset = {
+                name: document.getElementById('name').value,
+                assetType: document.getElementById('assetType').value,
+                depreciationGroup: depreciationGroup, // Celý objekt depreciationGroup
+                depreciationMethod: document.getElementById('depreciationMethod').value,
+                acquisitionCost: acquisitionCost,
+                taxValue: taxValue, // Převzato z pořizovací ceny, pokud není vyplněno
+                accountingValue: accountingValue, // Převzato z pořizovací ceny, pokud není vyplněno
+                acquisitionDate: document.getElementById('acquisitionDate').value,
+                commissioningDate: document.getElementById('commissioningDate').value,
+                warrantyPeriod: document.getElementById('warrantyPeriod').value ? parseInt(document.getElementById('warrantyPeriod').value) : null, // Změněno na int
+                serialNumber: document.getElementById('serialNumber').value,
+                partNumber: document.getElementById('partNumber').value || null,
+                manufacturer: document.getElementById('manufacturer').value,
+                supplier: document.getElementById('supplier').value || null,
+                description: document.getElementById('description').value || null
+            };
+
+            fetch('http://localhost:8080/add-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(asset)
+            }).then(response => {
+                if (response.ok) {
+                    alert('Položka byla úspěšně přidána!');
+                } else {
+                    alert('Došlo k chybě při přidávání položky.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
