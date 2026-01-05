@@ -4,86 +4,116 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seznam majetku</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
         .container {
-            margin-top: 50px;
-        }
-
-        h5 {
             margin-top: 30px;
-            font-weight: bold;
-        }
-
-        th {
-            cursor: pointer;
+            width: 90%;
+            max-width: 1400px;
         }
     </style>
 </head>
 <body>
     <!-- Navigační menu -->
     <nav>
-        <div class="nav-wrapper">
-            <a href="/" class="brand-logo">Evidence majetku</a>
+        <div class="nav-wrapper container">
+            <a href="/" class="brand-logo"><i class="material-icons">account_balance</i>Evidence</a>
             <ul id="nav-mobile" class="right hide-on-med-and-down">
-                <li><a href="/">Seznam majetku</a></li>
-                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+                <li class="active"><a href="/"><i class="material-icons left">list</i>Seznam</a></li>
+                <li><a href="/add-item-form.html"><i class="material-icons left">add</i>Nový majetek</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Seznam majetku -->
     <div class="container">
-        <h1>Seznam majetku</h1>
+        
+        <!-- Dashboard Statistiky -->
+        <div class="row">
+            <div class="col s12 m4">
+                <div class="card stats-card">
+                    <div class="card-content">
+                        <span class="label">Celkový počet aktiv</span>
+                        <div class="count" id="totalAssetsCount">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12 m4">
+                <div class="card stats-card">
+                    <div class="card-content">
+                        <span class="label">Celková hodnota (Pořizovací)</span>
+                        <div class="count" id="totalAcquisitionCost">0 Kč</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s12 m4">
+                <div class="card stats-card">
+                    <div class="card-content">
+                        <span class="label">Celková zůstatková hodnota</span>
+                        <div class="count" id="totalResidualValue">0 Kč</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Seznam aktivního majetku -->
-        <h5>Aktivní majetek</h5>
-        <table class="striped">
-            <thead>
-                <tr>
-                    <th onclick="sortTable(0, 'activeAssets', 'asc')">Číslo majetku</th>
-                    <th onclick="sortTable(1, 'activeAssets', 'asc')">Název</th>
-                    <th onclick="sortTable(2, 'activeAssets', 'asc')">Datum pořízení</th>
-                    <th onclick="sortTable(3, 'activeAssets', 'asc')">Pořizovací cena</th>
-                    <th onclick="sortTable(4, 'activeAssets', 'asc')">Zůstatková cena</th>
-                    <th>Akce</th>
-                    <th>Odpisy</th>
-                </tr>
-            </thead>
-            <tbody id="activeAssets">
-                <!-- Aktivní majetek bude načten sem -->
-            </tbody>
-        </table>
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">Aktivní majetek</span>
+                <table class="striped highlight responsive-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0, 'activeAssets', 'asc')">Číslo <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(1, 'activeAssets', 'asc')">Název <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(2, 'activeAssets', 'asc')">Datum pořízení <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(3, 'activeAssets', 'asc')">Pořizovací cena <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(4, 'activeAssets', 'asc')">Zůstatková cena <i class="material-icons tiny">sort</i></th>
+                            <th>Akce</th>
+                            <th>Odpisy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activeAssets">
+                        <!-- Aktivní majetek bude načten sem -->
+                    </tbody>
+                </table>
 
-        <!-- Stránkování pro aktivní majetek -->
-        <div class="pagination center-align">
-            <button class="btn" id="prevPageActive">Předchozí</button>
-            <span id="pageNumberActive">1</span>
-            <button class="btn" id="nextPageActive">Další</button>
+                <!-- Stránkování pro aktivní majetek -->
+                <div class="pagination center-align" style="margin-top: 20px;">
+                    <button class="btn-flat waves-effect" id="prevPageActive"><i class="material-icons">chevron_left</i></button>
+                    <span id="pageNumberActive" style="margin: 0 15px; font-weight: bold;">1</span>
+                    <button class="btn-flat waves-effect" id="nextPageActive"><i class="material-icons">chevron_right</i></button>
+                </div>
+            </div>
         </div>
 
         <!-- Seznam vyřazeného majetku -->
-        <h5>Vyřazený majetek</h5>
-        <table class="striped">
-            <thead>
-                <tr>
-                    <th onclick="sortTable(0, 'removedAssets', 'asc')">Číslo majetku</th>
-                    <th onclick="sortTable(1, 'removedAssets', 'asc')">Název</th>
-                    <th onclick="sortTable(2, 'removedAssets', 'asc')">Datum vyřazení</th>
-                    <th onclick="sortTable(3, 'removedAssets', 'asc')">Cena vyřazení</th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody id="removedAssets">
-                <!-- Vyřazený majetek bude načten sem -->
-            </tbody>
-        </table>
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">Vyřazený majetek</span>
+                <table class="striped highlight responsive-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0, 'removedAssets', 'asc')">Číslo <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(1, 'removedAssets', 'asc')">Název <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(2, 'removedAssets', 'asc')">Datum vyřazení <i class="material-icons tiny">sort</i></th>
+                            <th onclick="sortTable(3, 'removedAssets', 'asc')">Cena vyřazení <i class="material-icons tiny">sort</i></th>
+                            <th>Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody id="removedAssets">
+                        <!-- Vyřazený majetek bude načten sem -->
+                    </tbody>
+                </table>
 
-        <!-- Stránkování pro vyřazený majetek -->
-        <div class="pagination center-align">
-            <button class="btn" id="prevPageRemoved">Předchozí</button>
-            <span id="pageNumberRemoved">1</span>
-            <button class="btn" id="nextPageRemoved">Další</button>
+                <!-- Stránkování pro vyřazený majetek -->
+                <div class="pagination center-align" style="margin-top: 20px;">
+                    <button class="btn-flat waves-effect" id="prevPageRemoved"><i class="material-icons">chevron_left</i></button>
+                    <span id="pageNumberRemoved" style="margin: 0 15px; font-weight: bold;">1</span>
+                    <button class="btn-flat waves-effect" id="nextPageRemoved"><i class="material-icons">chevron_right</i></button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -109,6 +139,10 @@
                     let activeRows = [];
                     let removedRows = [];
 
+                    let totalAssets = 0;
+                    let totalAcquisition = 0;
+                    let totalResidual = 0;
+
                     assets.forEach(asset => {
                         let row = document.createElement('tr');
 
@@ -121,6 +155,11 @@
                         const residualValue = calculateResidualValue(asset);
 
                         if (!disposalDate) {
+                            // Aktualizace statistik
+                            totalAssets++;
+                            totalAcquisition += asset.acquisitionCost;
+                            totalResidual += residualValue;
+
                             // Aktivní majetek (nemá disposalDate)
                             row.innerHTML = `
                                         <td>${asset.assetNumber}</td>
@@ -128,8 +167,8 @@
                                         <td>${acquisitionDate}</td>
                                         <td>${acquisitionCostFormatted}</td>
                                         <td>${currencyFormatter.format(residualValue)}</td>
-                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
-                                        <td><a href="/generate-depreciation.html?assetNumber=${asset.assetNumber}" class="btn">Generuj odpisy</a></td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small"><i class="material-icons">visibility</i></a></td>
+                                        <td><a href="/generate-depreciation.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small orange"><i class="material-icons">calculate</i></a></td>
                                     `;
                             activeRows.push(row);
                         } else {
@@ -139,11 +178,16 @@
                                         <td>${asset.name}</td>
                                         <td>${disposalDate}</td>
                                         <td>${disposalPriceFormatted}</td>
-                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn">Zobrazit</a></td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small"><i class="material-icons">visibility</i></a></td>
                                     `;
                             removedRows.push(row);
                         }
                     });
+
+                    // Aktualizace Dashboardu
+                    document.getElementById('totalAssetsCount').innerText = totalAssets;
+                    document.getElementById('totalAcquisitionCost').innerText = currencyFormatter.format(totalAcquisition);
+                    document.getElementById('totalResidualValue').innerText = currencyFormatter.format(totalResidual);
 
                     // Nastavení stránkování pro aktivní a vyřazený majetek
                     setupPagination(activeRows, 'activeAssets', 'pageNumberActive', 'prevPageActive', 'nextPageActive');

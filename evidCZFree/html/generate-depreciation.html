@@ -4,54 +4,82 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generovat odpisy</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <link href="/assets/css/custom.css" rel="stylesheet">
+    <style>
+        .container {
+            margin-top: 30px;
+            width: 90%;
+            max-width: 1000px;
+        }
+        .info-row {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigační menu -->
     <nav>
-        <div class="nav-wrapper">
-            <a href="/" class="brand-logo">Evidence majetku</a>
+        <div class="nav-wrapper container">
+            <a href="/" class="brand-logo"><i class="material-icons">account_balance</i>Evidence</a>
             <ul id="nav-mobile" class="right hide-on-med-and-down">
-                <li><a href="/">Seznam majetku</a></li>
-                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+                <li><a href="/"><i class="material-icons left">list</i>Seznam</a></li>
+                <li><a href="/add-item-form.html"><i class="material-icons left">add</i>Nový majetek</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Kontejner pro základní informace o majetku -->
     <div class="container">
-        <h1>Generovat odpisy</h1>
-
-        <!-- Základní informace o majetku -->
         <div class="card">
             <div class="card-content">
-                <span class="card-title" id="assetName">Název majetku</span>
-                <p>Odpisová kategorie: <span id="depreciationGroup"></span></p>
-                <p>Druh odpisu: <span id="depreciationMethod"></span></p>
-                <p>Počet let odpisování: <span id="depreciationLength"></span></p>
-                <p>Vstupní cena: <span id="acquisitionCost"></span> Kč</p>
-                <p>Daňová cena: <span id="taxValue"></span> Kč</p>
-                <p>Účetní cena: <span id="accountingValue"></span> Kč</p>
+                <span class="card-title">Generovat odpisy</span>
+                
+                <!-- Základní informace o majetku -->
+                <div class="row">
+                    <div class="col s12">
+                        <h5 id="assetName" style="margin-bottom: 20px; color: #3498db;">Název majetku</h5>
+                    </div>
+                    <div class="col s12 m6">
+                        <div class="info-row"><span class="info-label">Odpisová kategorie:</span> <span id="depreciationGroup"></span></div>
+                        <div class="info-row"><span class="info-label">Druh odpisu:</span> <span id="depreciationMethod"></span></div>
+                        <div class="info-row"><span class="info-label">Počet let odpisování:</span> <span id="depreciationLength"></span></div>
+                    </div>
+                    <div class="col s12 m6">
+                        <div class="info-row"><span class="info-label">Vstupní cena:</span> <span id="acquisitionCost"></span> Kč</div>
+                        <div class="info-row"><span class="info-label">Daňová cena:</span> <span id="taxValue"></span> Kč</div>
+                        <div class="info-row"><span class="info-label">Účetní cena:</span> <span id="accountingValue"></span> Kč</div>
+                    </div>
+                </div>
+
+                <!-- Tlačítko pro vygenerování odpisů -->
+                <div class="center-align" style="margin-top: 20px; margin-bottom: 20px;">
+                    <button id="generateDepreciationsBtn" class="btn waves-effect waves-light btn-large orange" onclick="generateDepreciations()">
+                        <i class="material-icons left">calculate</i>Generuj odpisy
+                    </button>
+                </div>
+
+                <!-- Tabulka pro zobrazení odpisů -->
+                <table class="striped highlight centered">
+                    <thead>
+                        <tr>
+                            <th>Rok</th>
+                            <th>Odpisovaná částka (Kč)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="depreciationsTable">
+                        <!-- Odpisy budou načteny sem -->
+                    </tbody>
+                </table>
             </div>
         </div>
-
-        <!-- Tlačítko pro vygenerování odpisů -->
-        <div class="card-action">
-            <button id="generateDepreciationsBtn" class="btn waves-effect waves-light" onclick="generateDepreciations()">Generuj odpisy</button>
-        </div>
-
-        <!-- Tabulka pro zobrazení odpisů -->
-        <table class="striped">
-            <thead>
-                <tr>
-                    <th>Rok</th>
-                    <th>Odpisovaná částka (Kč)</th>
-                </tr>
-            </thead>
-            <tbody id="depreciationsTable">
-                <!-- Odpisy budou načteny sem -->
-            </tbody>
-        </table>
     </div>
 
     <script src="/assets/js/materialize.min.js"></script>
@@ -80,7 +108,12 @@
                     // Pokud již jsou odpisy vygenerovány, zobrazit je
                     if (asset.depreciations && asset.depreciations.length > 0) {
                         displayDepreciations(asset.depreciations);
-                        document.getElementById('generateDepreciationsBtn').disabled = true;  // Deaktivace tlačítka
+                        // Změna tlačítka na "Přegenerovat"
+                        const btn = document.getElementById('generateDepreciationsBtn');
+                        btn.innerHTML = '<i class="material-icons left">autorenew</i>Přegenerovat odpisy';
+                        btn.classList.remove('orange');
+                        btn.classList.add('red');
+                        btn.onclick = function() { generateDepreciations(true); };
                     }
                 })
                 .catch(error => console.error('Chyba při načítání dat majetku:', error));
@@ -89,6 +122,7 @@
         // Funkce pro zobrazení odpisů
         function displayDepreciations(depreciations) {
             const tableBody = document.getElementById('depreciationsTable');
+            tableBody.innerHTML = ''; // Vyčistit tabulku před zobrazením
             depreciations.forEach(depreciation => {
                 const row = document.createElement('tr');
                 row.innerHTML = `<td>${depreciation.year}</td><td>${depreciation.amount}</td>`;
@@ -97,22 +131,44 @@
         }
 
         // Funkce pro vygenerování odpisů
-        function generateDepreciations() {
+        function generateDepreciations(force = false) {
             const urlParams = new URLSearchParams(window.location.search);
             const assetNumber = urlParams.get('assetNumber');
+            
+            let url = `http://localhost:8080/generate-depreciations?assetNumber=${assetNumber}`;
+            if (force) {
+                if (!confirm('Opravdu chcete přegenerovat odpisy? Stávající plán bude smazán.')) {
+                    return;
+                }
+                url += '&force=true';
+            }
 
-            fetch(`http://localhost:8080/generate-depreciations?assetNumber=${assetNumber}`, {
+            fetch(url, {
                 method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    displayDepreciations(data.depreciations);  // Zobrazit nově vygenerované odpisy
-                    document.getElementById('generateDepreciationsBtn').disabled = true;  // Deaktivace tlačítka
+                    displayDepreciations(data.depreciations);
+                    if (!force) {
+                         // Po prvním vygenerování změníme tlačítko
+                        const btn = document.getElementById('generateDepreciationsBtn');
+                        btn.innerHTML = '<i class="material-icons left">autorenew</i>Přegenerovat odpisy';
+                        btn.classList.remove('orange');
+                        btn.classList.add('red');
+                        btn.onclick = function() { generateDepreciations(true); };
+                    }
+                    M.toast({html: 'Odpisy byly úspěšně vygenerovány', classes: 'green'});
+                } else {
+                    alert('Chyba: ' + (data.message || 'Nepodařilo se vygenerovat odpisy.'));
                 }
             })
-            .catch(error => console.error('Chyba při generování odpisů:', error));
+            .catch(error => {
+                console.error('Chyba:', error);
+                alert('Došlo k chybě při komunikaci se serverem.');
+            });
         }
+
     </script>
 </body>
 </html>

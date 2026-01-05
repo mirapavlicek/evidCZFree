@@ -4,153 +4,184 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Přidat nový majetek</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
         .input-field.col.s9 label {
             width: 75%;
+        }
+        .container {
+            margin-top: 30px;
+            width: 90%;
+            max-width: 1000px;
         }
     </style>
 </head>
 <body>
     <!-- Navigační menu -->
     <nav>
-        <div class="nav-wrapper">
-            <a href="/" class="brand-logo">Evidence majetku</a>
+        <div class="nav-wrapper container">
+            <a href="/" class="brand-logo"><i class="material-icons">account_balance</i>Evidence</a>
             <ul id="nav-mobile" class="right hide-on-med-and-down">
-                <li><a href="/">Seznam majetku</a></li>
-                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+                <li><a href="/"><i class="material-icons left">list</i>Seznam</a></li>
+                <li class="active"><a href="/add-item-form.html"><i class="material-icons left">add</i>Nový majetek</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Formulář pro přidání nového majetku -->
     <div class="container">
-        <h1>Přidat nový majetek</h1>
-        <form id="assetForm">
-            <!-- Název majetku a Datum pořízení (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s9">
-                    <input id="name" type="text" class="validate" required>
-                    <label for="name">Název majetku</label>
-                </div>
-                <div class="input-field col s3">
-                    <input id="acquisitionDate" type="text" class="datepicker" required>
-                    <label for="acquisitionDate">Datum pořízení</label>
-                </div>
-            </div>
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">Přidat nový majetek</span>
+                <form id="assetForm">
+                    <!-- Název majetku a Datum pořízení (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m9">
+                            <i class="material-icons prefix">label</i>
+                            <input id="name" type="text" class="validate" required>
+                            <label for="name">Název majetku</label>
+                        </div>
+                        <div class="input-field col s12 m3">
+                            <i class="material-icons prefix">event</i>
+                            <input id="acquisitionDate" type="text" class="datepicker" required>
+                            <label for="acquisitionDate">Datum pořízení</label>
+                        </div>
+                    </div>
 
-            <!-- Typ majetku, Odpisová skupina a Způsob odpisování (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s4">
-                    <select id="assetType" required>
-                        <option value="hmotný" selected>Hmotný</option>
-                        <option value="nehmotný">Nehmotný</option>
-                    </select>
-                    <label for="assetType">Typ majetku</label>
-                </div>
-                <div class="input-field col s4">
-                    <select id="depreciationGroup" required>
-                        <option value="" disabled selected>Vyber odpisovou skupinu</option>
-                        <option value='{"groupNumber":1,"groupName":"Notebooky, nářadí, kancelářská technika","depreciationLength":3}'>
-                            1 - Notebooky, nářadí, kancelářská technika (3 roky)
-                        </option>
-                        <option value='{"groupNumber":2,"groupName":"Osobní a nákladní auta, nábytek, TV","depreciationLength":5}'>
-                            2 - Osobní a nákladní auta, nábytek, TV (5 let)
-                        </option>
-                        <option value='{"groupNumber":3,"groupName":"Výrobní stroje, kotle, vytápění","depreciationLength":10}'>
-                            3 - Výrobní stroje, kotle, vytápění (10 let)
-                        </option>
-                        <option value='{"groupNumber":4,"groupName":"Budovy ze dřeva, plynovody","depreciationLength":20}'>
-                            4 - Budovy ze dřeva, plynovody (20 let)
-                        </option>
-                        <option value='{"groupNumber":5,"groupName":"Výrobní budovy, mosty, silnice","depreciationLength":30}'>
-                            5 - Výrobní budovy, mosty, silnice (30 let)
-                        </option>
-                        <option value='{"groupNumber":6,"groupName":"Administrativní budovy, kulturní památky","depreciationLength":50}'>
-                            6 - Administrativní budovy, kulturní památky (50 let)
-                        </option>
-                    </select>
-                    <label for="depreciationGroup">Odpisová skupina</label>
-                </div>
-                <div class="input-field col s4">
-                    <select id="depreciationMethod" required>
-                        <option value="" disabled selected>Vyber způsob odpisování</option>
-                        <option value="rovnoměrný">Rovnoměrný</option>
-                        <option value="zrychlený">Zrychlený</option>
-                        <option value="leasing">Leasing</option>
-                        <option value="bez_odpisů">Bez odpisů</option>
-                    </select>
-                    <label for="depreciationMethod">Způsob odpisování</label>
-                </div>
-            </div>
+                    <!-- Typ majetku, Odpisová skupina a Způsob odpisování (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">category</i>
+                            <select id="assetType" required>
+                                <option value="hmotný" selected>Hmotný</option>
+                                <option value="nehmotný">Nehmotný</option>
+                            </select>
+                            <label for="assetType">Typ majetku</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">folder</i>
+                            <select id="depreciationGroup" required>
+                                <option value="" disabled selected>Vyber odpisovou skupinu</option>
+                                <option value='{"groupNumber":1,"groupName":"Notebooky, nářadí, kancelářská technika","depreciationLength":3}'>
+                                    1 - Notebooky, nářadí, kancelářská technika (3 roky)
+                                </option>
+                                <option value='{"groupNumber":2,"groupName":"Osobní a nákladní auta, nábytek, TV","depreciationLength":5}'>
+                                    2 - Osobní a nákladní auta, nábytek, TV (5 let)
+                                </option>
+                                <option value='{"groupNumber":3,"groupName":"Výrobní stroje, kotle, vytápění","depreciationLength":10}'>
+                                    3 - Výrobní stroje, kotle, vytápění (10 let)
+                                </option>
+                                <option value='{"groupNumber":4,"groupName":"Budovy ze dřeva, plynovody","depreciationLength":20}'>
+                                    4 - Budovy ze dřeva, plynovody (20 let)
+                                </option>
+                                <option value='{"groupNumber":5,"groupName":"Výrobní budovy, mosty, silnice","depreciationLength":30}'>
+                                    5 - Výrobní budovy, mosty, silnice (30 let)
+                                </option>
+                                <option value='{"groupNumber":6,"groupName":"Administrativní budovy, kulturní památky","depreciationLength":50}'>
+                                    6 - Administrativní budovy, kulturní památky (50 let)
+                                </option>
+                            </select>
+                            <label for="depreciationGroup">Odpisová skupina</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">trending_down</i>
+                            <select id="depreciationMethod" required>
+                                <option value="" disabled selected>Vyber způsob odpisování</option>
+                                <option value="rovnoměrný">Rovnoměrný</option>
+                                <option value="zrychlený">Zrychlený</option>
+                                <option value="mimořádný">Mimořádný</option>
+                                <option value="leasing">Leasing</option>
+                                <option value="bez_odpisů">Bez odpisů</option>
+                            </select>
+                            <label for="depreciationMethod">Způsob odpisování</label>
+                        </div>
+                    </div>
 
-            <!-- Pořizovací cena, Vstupní cena daňová a účetní (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s4">
-                    <input id="acquisitionCost" type="number" class="validate" required>
-                    <label for="acquisitionCost">Pořizovací cena (Kč)</label>
-                </div>
-                <div class="input-field col s4">
-                    <input id="taxValue" type="number" class="validate">
-                    <label for="taxValue">Vstupní cena daňová</label>
-                </div>
-                <div class="input-field col s4">
-                    <input id="accountingValue" type="number" class="validate">
-                    <label for="accountingValue">Vstupní cena účetní</label>
-                </div>
-            </div>
+                    <!-- Pořizovací cena, Vstupní cena daňová a účetní (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">attach_money</i>
+                            <input id="acquisitionCost" type="number" class="validate" required>
+                            <label for="acquisitionCost">Pořizovací cena (Kč)</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">money_off</i>
+                            <input id="taxValue" type="number" class="validate">
+                            <label for="taxValue">Vstupní cena daňová</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">account_balance_wallet</i>
+                            <input id="accountingValue" type="number" class="validate">
+                            <label for="accountingValue">Vstupní cena účetní</label>
+                        </div>
+                    </div>
 
-            <!-- Datum uvedení do provozu a Délka záruky (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s6">
-                    <input id="commissioningDate" type="text" class="datepicker" required>
-                    <label for="commissioningDate">Datum uvedení do provozu</label>
-                </div>
-                <div class="input-field col s6">
-                    <input id="warrantyPeriod" type="number" class="validate">
-                    <label for="warrantyPeriod">Délka záruky (v měsících)</label>
-                </div>
-            </div>
+                    <!-- Datum uvedení do provozu a Délka záruky (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">date_range</i>
+                            <input id="commissioningDate" type="text" class="datepicker" required>
+                            <label for="commissioningDate">Datum uvedení do provozu</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">verified_user</i>
+                            <input id="warrantyPeriod" type="number" class="validate">
+                            <label for="warrantyPeriod">Délka záruky (v měsících)</label>
+                        </div>
+                    </div>
 
-            <!-- Sériové číslo a Part number (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s6">
-                    <input id="serialNumber" type="text" class="validate" required>
-                    <label for="serialNumber">Sériové číslo</label>
-                </div>
-                <div class="input-field col s6">
-                    <input id="partNumber" type="text" class="validate">
-                    <label for="partNumber">Part number</label>
-                </div>
-            </div>
+                    <!-- Sériové číslo a Part number (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">fingerprint</i>
+                            <input id="serialNumber" type="text" class="validate" required>
+                            <label for="serialNumber">Sériové číslo</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">qr_code</i>
+                            <input id="partNumber" type="text" class="validate">
+                            <label for="partNumber">Part number</label>
+                        </div>
+                    </div>
 
-            <!-- Výrobce a Dodavatel (společný řádek) -->
-            <div class="row">
-                <div class="input-field col s6">
-                    <input id="manufacturer" list="manufacturerList" type="text" class="validate" required>
-                    <label for="manufacturer">Výrobce</label>
-                    <datalist id="manufacturerList">
-                        <!-- Dynamicky načtené možnosti výrobců -->
-                    </datalist>
-                </div>
-                <div class="input-field col s6">
-                    <input id="supplier" list="supplierList" type="text" class="validate">
-                    <label for="supplier">Dodavatel</label>
-                    <datalist id="supplierList">
-                        <!-- Dynamicky načtené možnosti dodavatelů -->
-                    </datalist>
-                </div>
-            </div>
+                    <!-- Výrobce a Dodavatel (společný řádek) -->
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">business</i>
+                            <input id="manufacturer" list="manufacturerList" type="text" class="validate" required>
+                            <label for="manufacturer">Výrobce</label>
+                            <datalist id="manufacturerList">
+                                <!-- Dynamicky načtené možnosti výrobců -->
+                            </datalist>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">local_shipping</i>
+                            <input id="supplier" list="supplierList" type="text" class="validate">
+                            <label for="supplier">Dodavatel</label>
+                            <datalist id="supplierList">
+                                <!-- Dynamicky načtené možnosti dodavatelů -->
+                            </datalist>
+                        </div>
+                    </div>
 
-            <!-- Popis -->
-            <div class="input-field">
-                <textarea id="description" class="materialize-textarea"></textarea>
-                <label for="description">Popis</label>
-            </div>
+                    <!-- Popis -->
+                    <div class="input-field">
+                        <i class="material-icons prefix">description</i>
+                        <textarea id="description" class="materialize-textarea"></textarea>
+                        <label for="description">Popis</label>
+                    </div>
 
-            <!-- Tlačítko odeslat -->
-            <button class="btn waves-effect waves-light" type="submit">Odeslat</button>
-        </form>
+                    <!-- Tlačítko odeslat -->
+                    <div class="center-align">
+                        <button class="btn waves-effect waves-light btn-large" type="submit">
+                            <i class="material-icons left">save</i>Uložit majetek
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script src="/assets/js/materialize.min.js"></script>

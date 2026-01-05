@@ -1,0 +1,128 @@
+/* Modernizace vzhledu */
+body {
+    background-color: #f5f7fa;
+    font-family: 'Roboto', sans-serif;
+    color: #333;
+}
+
+/* Navbar */
+nav {
+    background-color: #2c3e50; /* Tmavě modrá */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+nav .brand-logo {
+    font-weight: 300;
+    padding-left: 20px;
+}
+
+/* Karty */
+.card {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: none;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    /* Jemný efekt při najetí */
+    /* transform: translateY(-2px); */
+}
+
+.card .card-title {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+/* Tlačítka */
+.btn, .btn-large {
+    background-color: #3498db; /* Světlejší modrá */
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    text-transform: none; /* Zrušení velkých písmen */
+    font-weight: 500;
+}
+
+.btn:hover, .btn-large:hover {
+    background-color: #2980b9;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.btn-flat {
+    color: #3498db;
+}
+
+/* Tabulky */
+table.striped > tbody > tr:nth-child(odd) {
+    background-color: rgba(242, 242, 242, 0.5);
+}
+
+table.highlight > tbody > tr:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+th {
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+td {
+    font-size: 0.95rem;
+}
+
+/* Formuláře */
+.input-field input[type=text]:focus + label,
+.input-field input[type=password]:focus + label,
+.input-field input[type=number]:focus + label,
+.input-field textarea:focus + label {
+    color: #3498db !important;
+}
+
+.input-field input[type=text]:focus,
+.input-field input[type=password]:focus,
+.input-field input[type=number]:focus,
+.input-field textarea:focus {
+    border-bottom: 1px solid #3498db !important;
+    box-shadow: 0 1px 0 0 #3498db !important;
+}
+
+/* Login stránka */
+.login-container {
+    margin-top: 10vh;
+    max-width: 400px;
+    padding: 40px;
+}
+
+/* Dashboard statistiky */
+.stats-card {
+    padding: 20px;
+    text-align: center;
+}
+
+.stats-card .count {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #3498db;
+    margin: 10px 0;
+}
+
+.stats-card .label {
+    color: #7f8c8d;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+/* Nadpisy */
+h1, h2, h3, h4, h5 {
+    color: #2c3e50;
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 40px;
+    font-weight: 300;
+}

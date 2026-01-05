@@ -263,8 +263,6 @@ class Program
             {
                 writer.Write(JsonSerializer.Serialize(assetWithResidualValue, new JsonSerializerOptions { WriteIndented = true }));
             }
-
-            response.OutputStream.Close();
         }
         else
         {
@@ -392,7 +390,6 @@ class Program
         {
             writer.Write(json);
         }
-        response.OutputStream.Close();
     }
 
     // Pomocná funkce pro načtení všech majetků
@@ -539,7 +536,6 @@ class Program
         {
             writer.Write(json);
         }
-        response.OutputStream.Close();
     }
 
     // Pomocná funkce pro načtení všech výrobců a dodavatelů z JSON souborů
@@ -678,15 +674,50 @@ class Program
         string json = File.ReadAllText(filePath);
         Asset asset = JsonSerializer.Deserialize<Asset>(json);
 
-        // Pokud již jsou odpisy vygenerovány, vrátit existující odpisy
+        // Kontrola, zda lze přegenerovat odpisy
+        bool forceRegenerate = request.QueryString["force"] == "true";
+
         if (asset.Depreciations != null && asset.Depreciations.Count > 0)
         {
-            response.StatusCode = (int)HttpStatusCode.OK;
-            byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true, depreciations = asset.Depreciations }));
-            response.ContentLength64 = buffer.Length;
-            response.OutputStream.Write(buffer, 0, buffer.Length);
-            response.OutputStream.Close();
-            return;
+            if (forceRegenerate)
+            {
+                // Zkontrolujeme, zda je nějaký odpis již "aplikován" (uzavřené daňové období)
+                // Odpis za rok Y se aplikuje do 31.3. Y+1
+                bool anyApplied = false;
+                DateTime now = DateTime.Now;
+                foreach (var dep in asset.Depreciations)
+                {
+                    DateTime applicationDeadline = new DateTime(dep.Year + 1, 3, 31);
+                    if (now > applicationDeadline)
+                    {
+                        anyApplied = true;
+                        break;
+                    }
+                }
+
+                if (anyApplied)
+                {
+                    response.StatusCode = (int)HttpStatusCode.Conflict; // 409 Conflict
+                    byte[] errorBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = "Nelze přegenerovat odpisy, některá období jsou již uzavřena." }));
+                    response.ContentLength64 = errorBuffer.Length;
+                    response.OutputStream.Write(errorBuffer, 0, errorBuffer.Length);
+                    response.OutputStream.Close();
+                    return;
+                }
+
+                // Pokud nejsou žádné aplikované, můžeme je smazat a přegenerovat
+                asset.Depreciations.Clear();
+            }
+            else
+            {
+                // Pokud není force=true, vrátíme existující (původní chování)
+                response.StatusCode = (int)HttpStatusCode.OK;
+                byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true, depreciations = asset.Depreciations }));
+                response.ContentLength64 = buffer.Length;
+                response.OutputStream.Write(buffer, 0, buffer.Length);
+                response.OutputStream.Close();
+                return;
+            }
         }
 
         // Generování odpisů podle metody odpisování
@@ -697,6 +728,10 @@ class Program
         else if (asset.DepreciationMethod == "zrychlený")
         {
             GenerateAcceleratedDepreciations(asset);
+        }
+        else if (asset.DepreciationMethod == "mimořádný")
+        {
+            GenerateExtraordinaryDepreciations(asset);
         }
         else if (asset.DepreciationMethod == "bez_odpisů")
         {
@@ -714,6 +749,120 @@ class Program
         response.OutputStream.Close();
     }
 
+
+    public static void GenerateExtraordinaryDepreciations(Asset asset)
+    {
+        // Mimořádné odpisy dle § 30a ZDP
+        // Pouze pro 1. a 2. odpisovou skupinu
+        if (asset.DepreciationGroup.GroupNumber != 1 && asset.DepreciationGroup.GroupNumber != 2)
+        {
+            // Fallback na rovnoměrné, pokud není skupina 1 nebo 2 (nebo vyhodit chybu/log)
+            GenerateDepreciations(asset);
+            return;
+        }
+
+        DateTime startDate;
+        if (!DateTime.TryParse(asset.CommissioningDate, out startDate))
+        {
+             if (!DateTime.TryParse(asset.AcquisitionDate, out startDate))
+             {
+                 return; // Nelze určit datum
+             }
+        }
+
+        decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
+        int startYear = startDate.Year;
+        int startMonth = startDate.Month;
+
+        // Mimořádné odpisy se počítají po měsících
+        // Skupina 1: 12 měsíců
+        // Skupina 2: 24 měsíců (12 měsíců 60%, 12 měsíců 40%)
+
+        if (asset.DepreciationGroup.GroupNumber == 1)
+        {
+            decimal monthlyDepreciation = baseValue / 12m;
+            
+            // Rok 1 (zbytek měsíců od pořízení)
+            int monthsInFirstYear = 12 - startMonth + 1; // Např. pořízení v prosinci (12) -> 12-12+1 = 1 měsíc
+            decimal firstYearAmount = Math.Ceiling(monthlyDepreciation * monthsInFirstYear);
+            
+            asset.Depreciations.Add(new Depreciation { Year = startYear, Amount = firstYearAmount });
+
+            // Rok 2 (zbytek do 12 měsíců)
+            int monthsInSecondYear = 12 - monthsInFirstYear;
+            if (monthsInSecondYear > 0)
+            {
+                // Zbytek hodnoty, aby to sedělo přesně (kvůli zaokrouhlování)
+                decimal secondYearAmount = baseValue - firstYearAmount;
+                asset.Depreciations.Add(new Depreciation { Year = startYear + 1, Amount = secondYearAmount });
+            }
+        }
+        else if (asset.DepreciationGroup.GroupNumber == 2)
+        {
+            decimal firstPhaseAmount = baseValue * 0.60m;
+            decimal secondPhaseAmount = baseValue * 0.40m;
+            
+            decimal monthlyRate1 = firstPhaseAmount / 12m;
+            decimal monthlyRate2 = secondPhaseAmount / 12m;
+
+            // Simulace měsíc po měsíci
+            decimal accumulatedDepreciation = 0;
+            
+            // Slovník pro sčítání odpisů v jednotlivých letech
+            Dictionary<int, decimal> yearlyDepreciations = new Dictionary<int, decimal>();
+
+            for (int i = 0; i < 24; i++)
+            {
+                int currentMonthIndex = startMonth + i; // 1-based index měsíce od začátku roku pořízení (může přesáhnout 12)
+                int currentYearOffset = (currentMonthIndex - 1) / 12;
+                int currentYear = startYear + currentYearOffset;
+                
+                decimal currentMonthlyAmount;
+                if (i < 12)
+                {
+                    currentMonthlyAmount = monthlyRate1;
+                }
+                else
+                {
+                    currentMonthlyAmount = monthlyRate2;
+                }
+
+                if (!yearlyDepreciations.ContainsKey(currentYear))
+                {
+                    yearlyDepreciations[currentYear] = 0;
+                }
+                yearlyDepreciations[currentYear] += currentMonthlyAmount;
+            }
+
+            // Uložení a zaokrouhlení
+            decimal totalDepreciated = 0;
+            foreach (var kvp in yearlyDepreciations.OrderBy(x => x.Key))
+            {
+                decimal amount = Math.Ceiling(kvp.Value);
+                
+                // Korekce posledního roku, aby součet seděl přesně na vstupní cenu (pokud by zaokrouhlení způsobilo přešvihnutí nebo nedošvihnutí)
+                // U mimořádných odpisů se zaokrouhluje na celé Kč nahoru, takže součet může být vyšší než vstupní cena?
+                // Ne, odpisy nesmí překročit vstupní cenu.
+                // Ale zákon říká "odpisy se stanoví s přesností na celé Kč nahoru".
+                // Obvykle se poslední splátka upraví.
+                
+                if (totalDepreciated + amount > baseValue)
+                {
+                    amount = baseValue - totalDepreciated;
+                }
+                
+                // Pokud je to poslední rok a chybí pár korun, dopodepíšeme zbytek?
+                // U mimořádných odpisů je to specifické. Ale pro jednoduchost a bezpečnost:
+                if (kvp.Key == yearlyDepreciations.Keys.Max() && totalDepreciated + amount < baseValue)
+                {
+                     amount = baseValue - totalDepreciated;
+                }
+
+                asset.Depreciations.Add(new Depreciation { Year = kvp.Key, Amount = amount });
+                totalDepreciated += amount;
+            }
+        }
+    }
 
     public static void GenerateNoDepraciations(Asset asset)
     {
@@ -749,24 +898,44 @@ class Program
 
         int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
         int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
+        decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
+        decimal totalDepreciated = 0;
 
         // Výpočet odpisů pro první rok
-        decimal firstYearDepreciation = asset.AcquisitionCost * depreciationRate.FirstYearRate / 100;
+        decimal firstYearDepreciation = Math.Ceiling(baseValue * depreciationRate.FirstYearRate / 100);
+        if (firstYearDepreciation > baseValue) firstYearDepreciation = baseValue;
+        
         asset.Depreciations.Add(new Depreciation
         {
             Year = startingYear,
             Amount = firstYearDepreciation
         });
+        totalDepreciated += firstYearDepreciation;
 
         // Výpočet odpisů pro následující roky
         for (int i = 1; i < yearsOfDepreciation; i++)
         {
-            decimal yearlyDepreciation = asset.AcquisitionCost * depreciationRate.FollowingYearsRate / 100;
-            asset.Depreciations.Add(new Depreciation
+            decimal yearlyDepreciation = Math.Ceiling(baseValue * depreciationRate.FollowingYearsRate / 100);
+            
+            // Kontrola, abychom nepřešvihli celkovou hodnotu
+            if (totalDepreciated + yearlyDepreciation > baseValue)
             {
-                Year = startingYear + i,
-                Amount = yearlyDepreciation
-            });
+                yearlyDepreciation = baseValue - totalDepreciated;
+            }
+            
+            // V posledním roce dorovnáme zbytek (pokud by vznikl rozdíl zaokrouhlením dolů v sazbách, ale tady zaokrouhlujeme nahoru, takže spíš přešvihneme)
+            // Ale pro jistotu, pokud je to poslední rok a zbývá něco málo (což by nemělo při zaokrouhlování nahoru), tak to tam dáme.
+            // Spíše jde o to, že při zaokrouhlování nahoru se to odepíše dříve nebo poslední splátka bude menší.
+            
+            if (yearlyDepreciation > 0)
+            {
+                asset.Depreciations.Add(new Depreciation
+                {
+                    Year = startingYear + i,
+                    Amount = yearlyDepreciation
+                });
+                totalDepreciated += yearlyDepreciation;
+            }
         }
     }
 
@@ -790,17 +959,41 @@ class Program
 
         int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
         int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
-        decimal remainingValue = asset.AcquisitionCost;
+        decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
+        decimal remainingValue = baseValue;
+        decimal totalDepreciated = 0;
 
-        decimal firstYearDepreciation = asset.AcquisitionCost / depreciationRate.FirstYearCoefficient;
+        decimal firstYearDepreciation = Math.Ceiling(baseValue / depreciationRate.FirstYearCoefficient);
+        if (firstYearDepreciation > baseValue) firstYearDepreciation = baseValue;
+
         asset.Depreciations.Add(new Depreciation { Year = startingYear, Amount = firstYearDepreciation });
         remainingValue -= firstYearDepreciation;
+        totalDepreciated += firstYearDepreciation;
 
         for (int i = 1; i < yearsOfDepreciation; i++)
         {
-            decimal yearlyDepreciation = (2 * remainingValue) / (depreciationRate.FollowingYearsCoefficient - i);
-            asset.Depreciations.Add(new Depreciation { Year = startingYear + i, Amount = yearlyDepreciation });
-            remainingValue -= yearlyDepreciation;
+            // Zrychlené odpisy: (2 * zůstatková cena) / (koeficient - počet let odpisování)
+            // Pozor: vzorec je (2 * ZC) / (k - n), kde n je počet již uplatněných let (tedy i).
+            decimal yearlyDepreciation = Math.Ceiling((2 * remainingValue) / (depreciationRate.FollowingYearsCoefficient - i));
+            
+            if (totalDepreciated + yearlyDepreciation > baseValue)
+            {
+                yearlyDepreciation = baseValue - totalDepreciated;
+            }
+
+            // Pokud je to poslední rok, zkontrolujeme, zda je vše odepsáno.
+            // U zrychlených odpisů by to mělo vyjít, ale pro jistotu.
+            if (i == yearsOfDepreciation - 1 && totalDepreciated + yearlyDepreciation < baseValue)
+            {
+                 yearlyDepreciation = baseValue - totalDepreciated;
+            }
+
+            if (yearlyDepreciation > 0)
+            {
+                asset.Depreciations.Add(new Depreciation { Year = startingYear + i, Amount = yearlyDepreciation });
+                remainingValue -= yearlyDepreciation;
+                totalDepreciated += yearlyDepreciation;
+            }
         }
     }
 
@@ -906,8 +1099,23 @@ class Program
         [JsonPropertyName("documentNumber")]
         public string DocumentNumber { get; set; } // Číslo dokladu
 
+        [JsonPropertyName("technicalAppreciations")]
+        public List<TechnicalAppreciation> TechnicalAppreciations { get; set; } = new List<TechnicalAppreciation>();
+
         [JsonPropertyName("depreciations")]
         public List<Depreciation> Depreciations { get; set; } = new List<Depreciation>();  // Seznam pro více řádků odpisů
+    }
+
+    public class TechnicalAppreciation
+    {
+        [JsonPropertyName("year")]
+        public int Year { get; set; }
+
+        [JsonPropertyName("amount")]
+        public decimal Amount { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
     }
 
     public class Depreciation

@@ -4,98 +4,94 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zobrazit majetek</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
+    <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
-        h5 {
+        .container {
             margin-top: 30px;
-            font-weight: bold;
-        }
-
-        .input-field label {
-            font-size: 1.1em;
-        }
-
-        .card {
-            padding: 20px;
-        }
-
-        .btn-large {
-            margin-top: 20px;
-        }
-
-        .input-field.col.s9 label {
-            width: 75%;
+            width: 90%;
+            max-width: 1000px;
         }
     </style>
 </head>
 <body>
     <!-- Navigační menu -->
     <nav>
-        <div class="nav-wrapper">
-            <a href="/" class="brand-logo">Evidence majetku</a>
+        <div class="nav-wrapper container">
+            <a href="/" class="brand-logo"><i class="material-icons">account_balance</i>Evidence</a>
             <ul id="nav-mobile" class="right hide-on-med-and-down">
-                <li><a href="/add-item-form.html">Přidat nový majetek</a></li>
+                <li><a href="/"><i class="material-icons left">list</i>Seznam</a></li>
+                <li><a href="/add-item-form.html"><i class="material-icons left">add</i>Nový majetek</a></li>
             </ul>
         </div>
     </nav>
 
     <!-- Formulář pro zobrazení majetku -->
     <div class="container">
-        <h1>Detail majetku</h1>
-
-        <!-- Karta pro základní informace o majetku -->
         <div class="card">
-            <h5>Základní informace</h5>
-
-            <form id="viewAssetForm">
-                <div class="row">
-                    <div class="input-field col s9">
-                        <input id="name" type="text" class="validate" readonly>
-                        <label for="name">Název majetku</label>
+            <div class="card-content">
+                <span class="card-title">Detail majetku</span>
+                
+                <form id="viewAssetForm">
+                    <h5>Základní informace</h5>
+                    <div class="row">
+                        <div class="input-field col s12 m9">
+                            <i class="material-icons prefix">label</i>
+                            <input id="name" type="text" class="validate" readonly>
+                            <label for="name">Název majetku</label>
+                        </div>
+                        <div class="input-field col s12 m3">
+                            <i class="material-icons prefix">event</i>
+                            <input id="acquisitionDate" type="text" class="datepicker" readonly>
+                            <label for="acquisitionDate">Datum pořízení</label>
+                        </div>
                     </div>
-                    <div class="input-field col s3">
-                        <input id="acquisitionDate" type="text" class="datepicker" readonly>
-                        <label for="acquisitionDate">Datum pořízení</label>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="input-field col s6">
-                        <input id="manufacturer" type="text" class="validate" readonly>
-                        <label for="manufacturer">Výrobce</label>
-                    </div>
-                    <div class="input-field col s6">
-                        <input id="supplier" type="text" class="validate" readonly>
-                        <label for="supplier">Dodavatel</label>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="input-field col s4">
-                        <input id="acquisitionCost" type="text" class="validate" readonly>
-                        <label for="acquisitionCost">Pořizovací cena (Kč)</label>
-                    </div>
-                    <div class="input-field col s4">
-                        <input id="accountingValue" type="text" class="validate" readonly>
-                        <label for="accountingValue">Účetní cena (Kč)</label>
-                    </div>
-                    <div class="input-field col s4">
-                        <input id="taxValue" type="text" class="validate" readonly>
-                        <label for="taxValue">Daňová cena (Kč)</label>
-                    </div>
-                </div>
-
-                <div class="input-field">
-                    <textarea id="description" class="materialize-textarea" readonly></textarea>
-                    <label for="description">Popis</label>
-                </div>
-
-                <!-- Karta pro informace o vyřazení majetku -->
-                <div class="card">
-                    <h5>Vyřazení majetku</h5>
 
                     <div class="row">
-                        <div class="input-field col s6">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">business</i>
+                            <input id="manufacturer" type="text" class="validate" readonly>
+                            <label for="manufacturer">Výrobce</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">local_shipping</i>
+                            <input id="supplier" type="text" class="validate" readonly>
+                            <label for="supplier">Dodavatel</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">attach_money</i>
+                            <input id="acquisitionCost" type="text" class="validate" readonly>
+                            <label for="acquisitionCost">Pořizovací cena (Kč)</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">account_balance_wallet</i>
+                            <input id="accountingValue" type="text" class="validate" readonly>
+                            <label for="accountingValue">Účetní cena (Kč)</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">money_off</i>
+                            <input id="taxValue" type="text" class="validate" readonly>
+                            <label for="taxValue">Daňová cena (Kč)</label>
+                        </div>
+                    </div>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix">description</i>
+                        <textarea id="description" class="materialize-textarea" readonly></textarea>
+                        <label for="description">Popis</label>
+                    </div>
+
+                    <div class="divider" style="margin: 30px 0;"></div>
+
+                    <!-- Sekce pro vyřazení majetku -->
+                    <h5>Vyřazení majetku</h5>
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">delete_sweep</i>
                             <select id="disposalMethod">
                                 <option value="" disabled selected>Vyber způsob vyřazení</option>
                                 <option value="prodej">Prodej</option>
@@ -105,28 +101,35 @@
                             <label for="disposalMethod">Způsob vyřazení</label>
                         </div>
 
-                        <div class="input-field col s6">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">event_busy</i>
                             <input id="disposalDate" type="text" class="datepicker">
                             <label for="disposalDate">Datum vyřazení</label>
                         </div>
                     </div>
 
-                    <div class="input-field">
-                        <input id="disposalPrice" type="text" class="validate">
-                        <label for="disposalPrice">Cena vyřazení (Kč)</label>
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">price_check</i>
+                            <input id="disposalPrice" type="text" class="validate">
+                            <label for="disposalPrice">Cena vyřazení (Kč)</label>
+                        </div>
+
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">receipt</i>
+                            <input id="documentNumber" type="text" class="validate">
+                            <label for="documentNumber">Číslo dokladu</label>
+                        </div>
                     </div>
 
-                    <div class="input-field">
-                        <input id="documentNumber" type="text" class="validate">
-                        <label for="documentNumber">Číslo dokladu</label>
+                    <!-- Tlačítko na uložení změn -->
+                    <div class="center-align" style="margin-top: 20px;">
+                        <button class="btn waves-effect waves-light btn-large" type="submit">
+                            <i class="material-icons left">save</i>Uložit změny
+                        </button>
                     </div>
-                </div>
-
-                <!-- Tlačítko na uložení změn -->
-                <button class="btn-large waves-effect waves-light" type="submit">
-                    <i class="material-icons left">save</i>Uložit změny
-                </button>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 
