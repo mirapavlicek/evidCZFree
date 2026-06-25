@@ -15,10 +15,20 @@ class Program
         string htmlFolder = Path.Combine(Directory.GetCurrentDirectory(), "html");
         string jsonFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
 
-        // Zajištění existence složky s JSON soubory
+        // Zajištění existence složky s daty
         if (!Directory.Exists(jsonFolder))
         {
             Directory.CreateDirectory(jsonFolder);
+        }
+
+        // Inicializace databáze LiteDB (jediný soubor data/evidence.db).
+        Db.Init(Path.Combine(jsonFolder, "evidence.db"));
+
+        // Automatický import dříve uložených JSON souborů (migrace ze staré verze).
+        int importedCount = ImportJsonFiles(jsonFolder);
+        if (importedCount > 0)
+        {
+            Console.WriteLine($"Importováno {importedCount} majetků z JSON souborů do databáze.");
         }
 
         // Spuštění jednoduchého webového serveru
@@ -80,6 +90,11 @@ class Program
             else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/generate-depreciations")
             {
                 HandleGenerateDepreciations(request, response, jsonFolder);
+            }
+            // Endpoint pro manuální import JSON souborů do databáze
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/import-json")
+            {
+                HandleImportJson(request, response, jsonFolder);
             }
             // Dynamické načítání statických souborů (CSS, JS, fonty, obrázky)
             else if (request.HttpMethod == "GET" && request.Url.AbsolutePath.StartsWith("/assets/"))
@@ -143,6 +158,128 @@ class Program
     public static int GetYearOrCurrent(string value)
     {
         return TryParseDate(value, out var d) ? d.Year : DateTime.Now.Year;
+    }
+
+    // =====================================================================
+    //  Datová vrstva – úložiště majetku v databázi LiteDB.
+    //  Nahrazuje původní ukládání po jednotlivých JSON souborech.
+    //  Pozn.: LiteDB má vlastní JsonSerializer, proto jsou jeho typy níže
+    //  plně kvalifikované (LiteDB.*), aby nekolidovaly se System.Text.Json.
+    // =====================================================================
+    public static class Db
+    {
+        private static LiteDB.LiteDatabase _database;
+        private static LiteDB.ILiteCollection<Asset> _assets;
+        private static readonly object _lock = new object();
+
+        public static void Init(string dbPath)
+        {
+            // Číslo majetku (AssetNumber) je primární klíč. Auto-id nepoužíváme –
+            // číslo přidělujeme sami (viz Insert), aby nedošlo ke kolizi po importu.
+            LiteDB.BsonMapper.Global.Entity<Asset>().Id(a => a.AssetNumber, autoId: false);
+            _database = new LiteDB.LiteDatabase($"Filename={dbPath};Connection=direct");
+            _assets = _database.GetCollection<Asset>("assets");
+        }
+
+        public static List<Asset> GetAll()
+        {
+            lock (_lock) { return _assets.FindAll().ToList(); }
+        }
+
+        public static Asset Get(int assetNumber)
+        {
+            lock (_lock) { return _assets.FindById(assetNumber); }
+        }
+
+        public static bool Exists(int assetNumber)
+        {
+            lock (_lock) { return _assets.FindById(assetNumber) != null; }
+        }
+
+        // Vloží nový majetek a přidělí mu další volné číslo. Vrací přidělené číslo.
+        public static int Insert(Asset asset)
+        {
+            lock (_lock)
+            {
+                var all = _assets.FindAll().ToList();
+                int next = all.Count == 0 ? 1 : all.Max(a => a.AssetNumber) + 1;
+                asset.AssetNumber = next;
+                _assets.Insert(asset);
+                return next;
+            }
+        }
+
+        public static bool Update(Asset asset)
+        {
+            lock (_lock) { return _assets.Update(asset); }
+        }
+
+        // Vloží nebo přepíše majetek se zachováním jeho čísla (použito při importu).
+        public static void Upsert(Asset asset)
+        {
+            lock (_lock) { _assets.Upsert(asset); }
+        }
+    }
+
+    // Import dříve uložených JSON souborů (data/*.json) do databáze LiteDB.
+    // Zpracované soubory se přesouvají do data/imported/, aby se neimportovaly
+    // znovu. Vrací počet úspěšně naimportovaných majetků.
+    public static int ImportJsonFiles(string folder)
+    {
+        if (!Directory.Exists(folder)) return 0;
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        string importedDir = Path.Combine(folder, "imported");
+        int imported = 0;
+
+        foreach (var file in Directory.GetFiles(folder, "*.json"))
+        {
+            // Přeskočíme uživatelský soubor s přihlášením, je-li ve složce.
+            if (string.Equals(Path.GetFileName(file), "user.json", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                string json = File.ReadAllText(file);
+                Asset asset = JsonSerializer.Deserialize<Asset>(json, options);
+                if (asset == null) continue;
+
+                // Bez platného čísla přidělíme nové; jinak zachováme původní číslo.
+                if (asset.AssetNumber <= 0)
+                {
+                    Db.Insert(asset);
+                }
+                else
+                {
+                    Db.Upsert(asset);
+                }
+                imported++;
+
+                // Zpracovaný soubor přesuneme do podsložky 'imported'.
+                Directory.CreateDirectory(importedDir);
+                string target = Path.Combine(importedDir, Path.GetFileName(file));
+                if (File.Exists(target)) File.Delete(target);
+                File.Move(file, target);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Chyba při importu souboru {file}: {ex.Message}");
+            }
+        }
+
+        return imported;
+    }
+
+    // Endpoint pro manuální spuštění importu JSON souborů.
+    public static void HandleImportJson(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
+    {
+        int count = ImportJsonFiles(jsonFolder);
+        response.ContentType = "application/json";
+        response.StatusCode = (int)HttpStatusCode.OK;
+        byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true, imported = count }));
+        response.ContentLength64 = buffer.Length;
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Close();
     }
 
     public static decimal CalculateResidualValue(Asset asset)
@@ -297,14 +434,11 @@ class Program
 
     public static void HandleViewAsset(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        string assetNumber = request.QueryString["assetNumber"];
-        string filePath = Path.Combine(jsonFolder, $"{assetNumber}.json");
+        int.TryParse(request.QueryString["assetNumber"], out int assetNumberId);
+        Asset asset = Db.Get(assetNumberId);
 
-        if (File.Exists(filePath))
+        if (asset != null)
         {
-            string json = File.ReadAllText(filePath);
-            Asset asset = JsonSerializer.Deserialize<Asset>(json);
-
             // Spočítáme zůstatkovou cenu
             decimal residualValue = CalculateResidualValue(asset);
 
@@ -341,7 +475,6 @@ class Program
         if (File.Exists(htmlFilePath))
         {
             string html = File.ReadAllText(htmlFilePath, Encoding.UTF8);
-            List<Asset> assets = LoadAllAssets(jsonFolder);
 
             // Pokud máš implementaci pro vkládání seznamu aktiv do HTML, můžeš ji tady upravit.
 
@@ -443,7 +576,7 @@ class Program
 
     public static void HandleGetAssets(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        var assets = GetAllAssets(jsonFolder);
+        var assets = Db.GetAll();
         var json = JsonSerializer.Serialize(assets);
 
         // Nastavení odpovědi
@@ -455,21 +588,10 @@ class Program
         }
     }
 
-    // Pomocná funkce pro načtení všech majetků
+    // Pomocná funkce pro načtení všech majetků (z databáze).
     public static List<Asset> GetAllAssets(string folder)
     {
-        var assets = new List<Asset>();
-
-        string[] files = Directory.GetFiles(folder, "*.json");
-
-        foreach (var file in files)
-        {
-            string json = File.ReadAllText(file);
-            Asset asset = JsonSerializer.Deserialize<Asset>(json);
-            assets.Add(asset);
-        }
-
-        return assets;
+        return Db.GetAll();
     }
 
 
@@ -504,12 +626,6 @@ class Program
 
     public static void HandleAddItem(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        // Načtení všech stávajících majetků
-        List<Asset> assets = LoadAllAssets(jsonFolder);
-
-        // Získání dalšího čísla majetku
-        int nextAssetNumber = GetNextAssetNumber(assets);
-
         // Načtení dat z POST požadavku
         using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
         {
@@ -529,12 +645,8 @@ class Program
 
                 if (newAsset != null)
                 {
-                    // Přiřazení nového čísla majetku
-                    newAsset.AssetNumber = nextAssetNumber;
-
-                    // Uložení nového majetku jako JSON soubor
-                    string newAssetFilePath = Path.Combine(jsonFolder, $"{newAsset.AssetNumber}.json");
-                    File.WriteAllText(newAssetFilePath, JsonSerializer.Serialize(newAsset));
+                    // Uložení nového majetku do databáze (číslo přidělí Db.Insert)
+                    Db.Insert(newAsset);
 
                     // Odpověď na POST požadavek
                     string responseString = "<html><body><h1>Položka byla úspěšně přidána!</h1></body></html>";
@@ -566,17 +678,10 @@ class Program
         }
     }
 
-    // Pomocná funkce pro načtení všech majetků z JSON souborů
+    // Pomocná funkce pro načtení všech majetků (z databáze).
     public static List<Asset> LoadAllAssets(string folder)
     {
-        List<Asset> assets = new List<Asset>();
-        foreach (var file in Directory.GetFiles(folder, "*.json"))
-        {
-            string json = File.ReadAllText(file);
-            Asset asset = JsonSerializer.Deserialize<Asset>(json);
-            assets.Add(asset);
-        }
-        return assets;
+        return Db.GetAll();
     }
 
     // Pomocná funkce pro získání dalšího čísla majetku
@@ -607,13 +712,8 @@ class Program
         var manufacturers = new HashSet<string>();
         var suppliers = new HashSet<string>();
 
-        string[] files = Directory.GetFiles(folder, "*.json");
-
-        foreach (var file in files)
+        foreach (var asset in Db.GetAll())
         {
-            string json = File.ReadAllText(file);
-            Asset asset = JsonSerializer.Deserialize<Asset>(json);
-
             if (!string.IsNullOrEmpty(asset.Manufacturer))
             {
                 manufacturers.Add(asset.Manufacturer);
@@ -642,25 +742,24 @@ class Program
     // Funkce pro načtení konkrétního assetu
     public static void HandleGetAsset(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        string assetNumber = request.QueryString["assetNumber"];
-        if (string.IsNullOrEmpty(assetNumber))
+        if (!int.TryParse(request.QueryString["assetNumber"], out int assetNumberId))
         {
             response.StatusCode = (int)HttpStatusCode.BadRequest;
             response.OutputStream.Close();
             return;
         }
 
-        // Cesta k JSON souboru majetku
-        string filePath = Path.Combine(jsonFolder, $"{assetNumber}.json");
-        if (!File.Exists(filePath))
+        // Načíst majetek z databáze
+        Asset asset = Db.Get(assetNumberId);
+        if (asset == null)
         {
             response.StatusCode = (int)HttpStatusCode.NotFound;
             response.OutputStream.Close();
             return;
         }
 
-        // Načíst obsah JSON souboru
-        string json = File.ReadAllText(filePath);
+        string json = JsonSerializer.Serialize(asset, new JsonSerializerOptions { WriteIndented = true });
+        response.ContentType = "application/json";
         response.StatusCode = (int)HttpStatusCode.OK;
         byte[] buffer = Encoding.UTF8.GetBytes(json);
         response.ContentLength64 = buffer.Length;
@@ -671,10 +770,10 @@ class Program
     // Funkce pro aktualizaci assetu
     public static void HandleUpdateAsset(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        string assetNumber = request.QueryString["assetNumber"];
-        string filePath = Path.Combine(jsonFolder, $"{assetNumber}.json");
+        int.TryParse(request.QueryString["assetNumber"], out int assetNumberId);
+        Asset existingAsset = Db.Get(assetNumberId);
 
-        if (File.Exists(filePath))
+        if (existingAsset != null)
         {
             try
             {
@@ -683,15 +782,13 @@ class Program
                     string json = reader.ReadToEnd();
                     Asset updatedData = JsonSerializer.Deserialize<Asset>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                    Asset existingAsset = JsonSerializer.Deserialize<Asset>(File.ReadAllText(filePath));
-
                     // Aktualizace polí vyřazení
                     existingAsset.DisposalMethod = updatedData.DisposalMethod;
                     existingAsset.DisposalDate = string.IsNullOrWhiteSpace(updatedData.DisposalDate) ? null : updatedData.DisposalDate;
                     existingAsset.DisposalPrice = updatedData.DisposalPrice.HasValue ? updatedData.DisposalPrice : null;
                     existingAsset.DocumentNumber = updatedData.DocumentNumber;
 
-                    File.WriteAllText(filePath, JsonSerializer.Serialize(existingAsset, new JsonSerializerOptions { WriteIndented = true }));
+                    Db.Update(existingAsset);
 
                     response.StatusCode = (int)HttpStatusCode.OK;
                     response.OutputStream.Close();
@@ -716,26 +813,21 @@ class Program
     // Funkce pro generování odpisů
     public static void HandleGenerateDepreciations(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
-        string assetNumber = request.QueryString["assetNumber"];
-        if (string.IsNullOrEmpty(assetNumber))
+        if (!int.TryParse(request.QueryString["assetNumber"], out int assetNumberId))
         {
             response.StatusCode = (int)HttpStatusCode.BadRequest;
             response.OutputStream.Close();
             return;
         }
 
-        // Cesta k JSON souboru majetku
-        string filePath = Path.Combine(jsonFolder, $"{assetNumber}.json");
-        if (!File.Exists(filePath))
+        // Načíst majetek z databáze
+        Asset asset = Db.Get(assetNumberId);
+        if (asset == null)
         {
             response.StatusCode = (int)HttpStatusCode.NotFound;
             response.OutputStream.Close();
             return;
         }
-
-        // Načíst majetek
-        string json = File.ReadAllText(filePath);
-        Asset asset = JsonSerializer.Deserialize<Asset>(json);
 
         // Kontrola, zda lze přegenerovat odpisy
         bool forceRegenerate = request.QueryString["force"] == "true";
@@ -812,8 +904,8 @@ class Program
             GenerateNoDepraciations(asset);
         }
 
-        // Uložit aktualizovaný asset s odpisy
-        File.WriteAllText(filePath, JsonSerializer.Serialize(asset, new JsonSerializerOptions { WriteIndented = true }));
+        // Uložit aktualizovaný asset s odpisy do databáze
+        Db.Update(asset);
 
         // Vrátit úspěch a nové odpisy
         response.StatusCode = (int)HttpStatusCode.OK;
