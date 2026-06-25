@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seznam majetku</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
     <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
@@ -34,23 +35,26 @@
         <div class="row">
             <div class="col s12 m4">
                 <div class="card stats-card">
-                    <div class="card-content">
+                    <div class="stats-icon"><i class="material-icons">inventory_2</i></div>
+                    <div class="stats-body">
                         <span class="label">Celkový počet aktiv</span>
                         <div class="count" id="totalAssetsCount">0</div>
                     </div>
                 </div>
             </div>
             <div class="col s12 m4">
-                <div class="card stats-card">
-                    <div class="card-content">
-                        <span class="label">Celková hodnota (Pořizovací)</span>
+                <div class="card stats-card accent-sky">
+                    <div class="stats-icon"><i class="material-icons">payments</i></div>
+                    <div class="stats-body">
+                        <span class="label">Celková pořizovací hodnota</span>
                         <div class="count" id="totalAcquisitionCost">0 Kč</div>
                     </div>
                 </div>
             </div>
             <div class="col s12 m4">
-                <div class="card stats-card">
-                    <div class="card-content">
+                <div class="card stats-card accent-emerald">
+                    <div class="stats-icon"><i class="material-icons">savings</i></div>
+                    <div class="stats-body">
                         <span class="label">Celková zůstatková hodnota</span>
                         <div class="count" id="totalResidualValue">0 Kč</div>
                     </div>
