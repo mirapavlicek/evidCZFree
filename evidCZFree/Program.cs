@@ -33,6 +33,8 @@ class Program
             HttpListenerRequest request = context.Request;
             HttpListenerResponse response = context.Response;
 
+          try
+          {
             // Dynamické načítání HTML souborů
             if (request.HttpMethod == "GET" && request.Url.AbsolutePath.EndsWith(".html"))
             {
@@ -92,7 +94,55 @@ class Program
             {
                 HandleNotFound(response);
             }
+          }
+          catch (Exception ex)
+          {
+              // Jedna chybná žádost nesmí shodit celý server.
+              Console.WriteLine("Neošetřená chyba při zpracování požadavku: " + ex.Message);
+              try
+              {
+                  response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                  response.OutputStream.Close();
+              }
+              catch
+              {
+                  // Odpověď už mohla být odeslána / uzavřena – ignorujeme.
+              }
+          }
         }
+    }
+
+    // Robustní parsování data zadaného uživatelem. Frontend (Materialize
+    // datepicker) posílá datum ve formátu dd/mm/yyyy, proto preferujeme
+    // českou kulturu. Pro zpětnou kompatibilitu zkoušíme i další formáty.
+    public static bool TryParseDate(string value, out DateTime result)
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        string[] formats =
+        {
+            "dd/MM/yyyy", "d/M/yyyy",
+            "dd.MM.yyyy", "d.M.yyyy",
+            "yyyy-MM-dd", "yyyy/MM/dd"
+        };
+
+        var cs = System.Globalization.CultureInfo.GetCultureInfo("cs-CZ");
+        if (DateTime.TryParseExact(value.Trim(), formats, cs,
+                System.Globalization.DateTimeStyles.None, out result))
+        {
+            return true;
+        }
+
+        // Poslední pokus – obecné parsování v české kultuře.
+        return DateTime.TryParse(value.Trim(), cs,
+            System.Globalization.DateTimeStyles.None, out result);
+    }
+
+    // Bezpečné získání roku z data; vrací aktuální rok, pokud se nepodaří parsovat.
+    public static int GetYearOrCurrent(string value)
+    {
+        return TryParseDate(value, out var d) ? d.Year : DateTime.Now.Year;
     }
 
     public static decimal CalculateResidualValue(Asset asset)
@@ -102,6 +152,19 @@ class Program
 
         // Získáme aktuální rok
         int currentYear = DateTime.Now.Year;
+
+        // Technické zhodnocení (§ 33 ZDP) zvyšuje vstupní (zůstatkovou) cenu
+        // majetku v roce, kdy bylo dokončeno a uvedeno do stavu způsobilého užívání.
+        if (asset.TechnicalAppreciations != null)
+        {
+            foreach (var ta in asset.TechnicalAppreciations)
+            {
+                if (ta.Year <= currentYear)
+                {
+                    residualValue += ta.Amount;
+                }
+            }
+        }
 
         // Projdeme všechny odpisy a odečteme ty, které jsou do aktuálního roku včetně
         foreach (var depreciation in asset.Depreciations)
@@ -720,6 +783,17 @@ class Program
             }
         }
 
+        // Legislativní kontrola způsobilosti k daňovému odpisování.
+        if (!ValidateDepreciationEligibility(asset, out string validationMessage))
+        {
+            response.StatusCode = (int)HttpStatusCode.Conflict; // 409 Conflict
+            byte[] errBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = validationMessage }));
+            response.ContentLength64 = errBuffer.Length;
+            response.OutputStream.Write(errBuffer, 0, errBuffer.Length);
+            response.OutputStream.Close();
+            return;
+        }
+
         // Generování odpisů podle metody odpisování
         if (asset.DepreciationMethod == "rovnoměrný")
         {
@@ -750,6 +824,76 @@ class Program
     }
 
 
+    // Ověření, zda lze majetek daňově odpisovat zvolenou metodou podle ZDP.
+    // Vrací false a vyplní 'message', pokud generování není v souladu se zákonem.
+    public static bool ValidateDepreciationEligibility(Asset asset, out string message)
+    {
+        message = string.Empty;
+
+        if (asset == null || asset.DepreciationGroup == null)
+        {
+            message = "Chybí odpisová skupina majetku.";
+            return false;
+        }
+
+        string method = asset.DepreciationMethod ?? string.Empty;
+        string type = asset.AssetType ?? string.Empty;
+        int acquisitionYear = GetYearOrCurrent(asset.AcquisitionDate);
+        decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
+        int group = asset.DepreciationGroup.GroupNumber;
+
+        bool isRealDepreciation = method == "rovnoměrný" || method == "zrychlený" || method == "mimořádný";
+
+        // Leasing: daňovým nákladem je nájemné/splátky, majetek odpisuje pronajímatel.
+        if (method == "leasing")
+        {
+            message = "U leasingu se daňové odpisy negenerují – daňovým nákladem je nájemné dle § 24 ZDP. Pro evidenci použijte způsob „Bez odpisů“.";
+            return false;
+        }
+
+        // Nehmotný majetek – § 32a ZDP zrušen od 1. 1. 2021.
+        if (type == "nehmotný" && isRealDepreciation && acquisitionYear >= Legislation.NehmotnyMajetekDanoveOdpisyZrusenyOdRoku)
+        {
+            message = $"Daňové odpisy nehmotného majetku byly zrušeny od roku {Legislation.NehmotnyMajetekDanoveOdpisyZrusenyOdRoku} (§ 32a ZDP). U majetku pořízeného od tohoto roku se uplatní účetní odpis – zvolte způsob „Bez odpisů“.";
+            return false;
+        }
+
+        // Hranice vstupní ceny hmotného movitého majetku (skupiny 1–3) dle § 26 ZDP.
+        // Nemovitý majetek (skupiny 4–6) se odpisuje bez ohledu na cenu.
+        if (type == "hmotný" && isRealDepreciation && group >= 1 && group <= 3 && baseValue < Legislation.HmotnyMajetekHranice)
+        {
+            message = $"Vstupní cena {baseValue:N0} Kč nedosahuje hranice {Legislation.HmotnyMajetekHranice:N0} Kč pro hmotný majetek (§ 26 odst. 2 ZDP). Jde o drobný majetek – daňově se neodpisuje a uplatní se jako jednorázový náklad. Zvolte způsob „Bez odpisů“.";
+            return false;
+        }
+
+        // Mimořádné odpisy – § 30a ZDP.
+        if (method == "mimořádný")
+        {
+            if (group != 1 && group != 2)
+            {
+                message = "Mimořádné odpisy lze dle § 30a ZDP uplatnit pouze u majetku v odpisové skupině 1 a 2.";
+                return false;
+            }
+
+            bool obecneObdobi = acquisitionYear >= Legislation.MimoradneOdpisyObecneOd && acquisitionYear <= Legislation.MimoradneOdpisyObecneDo;
+            bool bezemisniObdobi = acquisitionYear >= Legislation.MimoradneOdpisyBezemisniVozidloOd && acquisitionYear <= Legislation.MimoradneOdpisyBezemisniVozidloDo;
+
+            if (bezemisniObdobi && !asset.IsZeroEmissionVehicle)
+            {
+                message = $"Od roku {Legislation.MimoradneOdpisyBezemisniVozidloOd} lze mimořádné odpisy (§ 30a ZDP) uplatnit pouze u bezemisních vozidel. Označte majetek jako bezemisní vozidlo, nebo zvolte jiný způsob odpisování.";
+                return false;
+            }
+
+            if (!obecneObdobi && !bezemisniObdobi)
+            {
+                message = $"Mimořádné odpisy (§ 30a ZDP) lze uplatnit jen u majetku pořízeného v letech {Legislation.MimoradneOdpisyObecneOd}–{Legislation.MimoradneOdpisyObecneDo}, resp. u bezemisních vozidel pořízených {Legislation.MimoradneOdpisyBezemisniVozidloOd}–{Legislation.MimoradneOdpisyBezemisniVozidloDo}. Pro rok {acquisitionYear} zvolte rovnoměrný nebo zrychlený odpis.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static void GenerateExtraordinaryDepreciations(Asset asset)
     {
         // Mimořádné odpisy dle § 30a ZDP
@@ -762,9 +906,9 @@ class Program
         }
 
         DateTime startDate;
-        if (!DateTime.TryParse(asset.CommissioningDate, out startDate))
+        if (!TryParseDate(asset.CommissioningDate, out startDate))
         {
-             if (!DateTime.TryParse(asset.AcquisitionDate, out startDate))
+             if (!TryParseDate(asset.AcquisitionDate, out startDate))
              {
                  return; // Nelze určit datum
              }
@@ -805,9 +949,6 @@ class Program
             decimal monthlyRate1 = firstPhaseAmount / 12m;
             decimal monthlyRate2 = secondPhaseAmount / 12m;
 
-            // Simulace měsíc po měsíci
-            decimal accumulatedDepreciation = 0;
-            
             // Slovník pro sčítání odpisů v jednotlivých letech
             Dictionary<int, decimal> yearlyDepreciations = new Dictionary<int, decimal>();
 
@@ -871,7 +1012,7 @@ class Program
             // Vygenerujeme jeden záznam odpisu s celou daňovou hodnotou
             asset.Depreciations.Add(new Depreciation
             {
-                Year = DateTime.Parse(asset.AcquisitionDate).Year,
+                Year = GetYearOrCurrent(asset.AcquisitionDate),
                 Amount = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost
             });
             return; // Ukončíme funkci, protože žádné další odpisy se negenerují
@@ -887,7 +1028,7 @@ class Program
             // Vygenerujeme jeden záznam odpisu s celou daňovou hodnotou
             asset.Depreciations.Add(new Depreciation
             {
-                Year = DateTime.Parse(asset.AcquisitionDate).Year,
+                Year = GetYearOrCurrent(asset.AcquisitionDate),
                 Amount = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost
             });
             return; // Ukončíme funkci, protože žádné další odpisy se negenerují
@@ -897,7 +1038,7 @@ class Program
         if (depreciationRate == null) return;
 
         int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
-        int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
+        int startingYear = GetYearOrCurrent(asset.AcquisitionDate);
         decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
         decimal totalDepreciated = 0;
 
@@ -948,7 +1089,7 @@ class Program
             // Vygenerujeme jeden záznam odpisu s celou daňovou hodnotou
             asset.Depreciations.Add(new Depreciation
             {
-                Year = DateTime.Parse(asset.AcquisitionDate).Year,
+                Year = GetYearOrCurrent(asset.AcquisitionDate),
                 Amount = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost
             });
             return; // Ukončíme funkci, protože žádné další odpisy se negenerují
@@ -958,7 +1099,7 @@ class Program
         if (depreciationRate == null) return;
 
         int yearsOfDepreciation = asset.DepreciationGroup.DepreciationLength;
-        int startingYear = DateTime.Parse(asset.AcquisitionDate).Year;
+        int startingYear = GetYearOrCurrent(asset.AcquisitionDate);
         decimal baseValue = asset.TaxValue.HasValue ? asset.TaxValue.Value : asset.AcquisitionCost;
         decimal remainingValue = baseValue;
         decimal totalDepreciated = 0;
@@ -997,26 +1138,77 @@ class Program
         }
     }
 
-    // Statické tabulky pro rovnoměrné a zrychlené odpisy
-    public static List<DepreciationRate> DepreciationRates = new List<DepreciationRate>
-    {
-        new DepreciationRate { GroupNumber = 1, FirstYearRate = 20, FollowingYearsRate = 40, IncreasedRate = 33.3M },
-        new DepreciationRate { GroupNumber = 2, FirstYearRate = 11, FollowingYearsRate = 22.25M, IncreasedRate = 20 },
-        new DepreciationRate { GroupNumber = 3, FirstYearRate = 5.5M, FollowingYearsRate = 10.5M, IncreasedRate = 10 },
-        new DepreciationRate { GroupNumber = 4, FirstYearRate = 2.15M, FollowingYearsRate = 5.15M, IncreasedRate = 5 },
-        new DepreciationRate { GroupNumber = 5, FirstYearRate = 1.4M, FollowingYearsRate = 3.4M, IncreasedRate = 3.4M },
-        new DepreciationRate { GroupNumber = 6, FirstYearRate = 1.02M, FollowingYearsRate = 2.02M, IncreasedRate = 2 }
-    };
+    // Statické tabulky pro rovnoměrné a zrychlené odpisy.
+    // Jediným zdrojem pravdy je třída Legislation (viz níže) – zde
+    // jsou pouze odkazy kvůli zpětné kompatibilitě stávajícího kódu.
+    public static List<DepreciationRate> DepreciationRates = Legislation.RovnomerneOdpisy;
 
-    public static List<AcceleratedDepreciationRate> AcceleratedDepreciationRates = new List<AcceleratedDepreciationRate>
+    public static List<AcceleratedDepreciationRate> AcceleratedDepreciationRates = Legislation.ZrychleneOdpisy;
+
+    // =====================================================================
+    //  LEGISLATIVA – jednotné místo pro daňové parametry odpisů majetku.
+    //
+    //  Vychází ze zákona č. 586/1992 Sb., o daních z příjmů (dále „ZDP"),
+    //  ve znění účinném pro rok 2026. Při změně zákona stačí upravit hodnoty
+    //  na jednom místě.
+    // =====================================================================
+    public static class Legislation
     {
-        new AcceleratedDepreciationRate { GroupNumber = 1, FirstYearCoefficient = 3, FollowingYearsCoefficient = 4, IncreasedRate = 3 },
-        new AcceleratedDepreciationRate { GroupNumber = 2, FirstYearCoefficient = 5, FollowingYearsCoefficient = 6, IncreasedRate = 5 },
-        new AcceleratedDepreciationRate { GroupNumber = 3, FirstYearCoefficient = 10, FollowingYearsCoefficient = 11, IncreasedRate = 10 },
-        new AcceleratedDepreciationRate { GroupNumber = 4, FirstYearCoefficient = 20, FollowingYearsCoefficient = 21, IncreasedRate = 20 },
-        new AcceleratedDepreciationRate { GroupNumber = 5, FirstYearCoefficient = 30, FollowingYearsCoefficient = 31, IncreasedRate = 30 },
-        new AcceleratedDepreciationRate { GroupNumber = 6, FirstYearCoefficient = 50, FollowingYearsCoefficient = 51, IncreasedRate = 50 }
-    };
+        // Rok, pro který jsou parametry platné (informativní).
+        public const int PlatnostRok = 2026;
+
+        // § 26 odst. 2 ZDP – od 1. 1. 2021 je hranice vstupní ceny pro
+        // hmotný majetek 80 000 Kč (do 31. 12. 2020 činila 40 000 Kč).
+        // Majetek pod tuto hranici není hmotným majetkem a daňově se
+        // neodpisuje (uplatní se jako jednorázový náklad, příp. účetně).
+        public const decimal HmotnyMajetekHranice = 80000m;
+
+        // § 33 odst. 1 ZDP – od 1. 1. 2021 je hranice pro technické
+        // zhodnocení rovněž 80 000 Kč (souhrnně za zdaňovací období).
+        public const decimal TechnickeZhodnoceniHranice = 80000m;
+
+        // § 32a ZDP byl s účinností od 1. 1. 2021 zrušen. U nehmotného
+        // majetku pořízeného od tohoto roku se daňové odpisy neuplatňují
+        // a uznává se účetní odpis (§ 24 odst. 2 písm. v) ZDP).
+        public const int NehmotnyMajetekDanoveOdpisyZrusenyOdRoku = 2021;
+
+        // § 30a ZDP – mimořádné odpisy:
+        //   * obecně: hmotný majetek zařazený v odpisové skupině 1 a 2
+        //     pořízený v období 1. 1. 2020 – 31. 12. 2023,
+        //   * od 1. 1. 2024 pouze bezemisní (zero-emission) vozidla.
+        public const int MimoradneOdpisyObecneOd = 2020;
+        public const int MimoradneOdpisyObecneDo = 2023;
+        public const int MimoradneOdpisyBezemisniVozidloOd = 2024;
+        public const int MimoradneOdpisyBezemisniVozidloDo = 2028;
+
+        // Rovnoměrné odpisy – roční odpisové sazby dle § 31 odst. 1 písm. a) ZDP.
+        public static readonly List<DepreciationRate> RovnomerneOdpisy = new List<DepreciationRate>
+        {
+            new DepreciationRate { GroupNumber = 1, FirstYearRate = 20,     FollowingYearsRate = 40,     IncreasedRate = 33.3M },
+            new DepreciationRate { GroupNumber = 2, FirstYearRate = 11,     FollowingYearsRate = 22.25M, IncreasedRate = 20 },
+            new DepreciationRate { GroupNumber = 3, FirstYearRate = 5.5M,   FollowingYearsRate = 10.5M,  IncreasedRate = 10 },
+            new DepreciationRate { GroupNumber = 4, FirstYearRate = 2.15M,  FollowingYearsRate = 5.15M,  IncreasedRate = 5 },
+            new DepreciationRate { GroupNumber = 5, FirstYearRate = 1.4M,   FollowingYearsRate = 3.4M,   IncreasedRate = 3.4M },
+            new DepreciationRate { GroupNumber = 6, FirstYearRate = 1.02M,  FollowingYearsRate = 2.02M,  IncreasedRate = 2 }
+        };
+
+        // Zrychlené odpisy – koeficienty dle § 32 odst. 1 ZDP.
+        public static readonly List<AcceleratedDepreciationRate> ZrychleneOdpisy = new List<AcceleratedDepreciationRate>
+        {
+            new AcceleratedDepreciationRate { GroupNumber = 1, FirstYearCoefficient = 3,  FollowingYearsCoefficient = 4,  IncreasedRate = 3 },
+            new AcceleratedDepreciationRate { GroupNumber = 2, FirstYearCoefficient = 5,  FollowingYearsCoefficient = 6,  IncreasedRate = 5 },
+            new AcceleratedDepreciationRate { GroupNumber = 3, FirstYearCoefficient = 10, FollowingYearsCoefficient = 11, IncreasedRate = 10 },
+            new AcceleratedDepreciationRate { GroupNumber = 4, FirstYearCoefficient = 20, FollowingYearsCoefficient = 21, IncreasedRate = 20 },
+            new AcceleratedDepreciationRate { GroupNumber = 5, FirstYearCoefficient = 30, FollowingYearsCoefficient = 31, IncreasedRate = 30 },
+            new AcceleratedDepreciationRate { GroupNumber = 6, FirstYearCoefficient = 50, FollowingYearsCoefficient = 51, IncreasedRate = 50 }
+        };
+
+        // Minimální doba odpisování dle § 30 odst. 1 ZDP (v letech).
+        public static readonly Dictionary<int, int> DobaOdpisovani = new Dictionary<int, int>
+        {
+            { 1, 3 }, { 2, 5 }, { 3, 10 }, { 4, 20 }, { 5, 30 }, { 6, 50 }
+        };
+    }
 
     // Pomocné třídy a další obslužné funkce, které již byly součástí původního kódu...
 
@@ -1052,6 +1244,11 @@ class Program
 
         [JsonPropertyName("depreciationMethod")]
         public string DepreciationMethod { get; set; }
+
+        // Bezemisní (zero-emission) vozidlo – rozhoduje o nároku na mimořádné
+        // odpisy dle § 30a ZDP u majetku pořízeného od 1. 1. 2024.
+        [JsonPropertyName("isZeroEmissionVehicle")]
+        public bool IsZeroEmissionVehicle { get; set; }
 
         [JsonPropertyName("acquisitionCost")]
         public decimal AcquisitionCost { get; set; }
