@@ -202,16 +202,27 @@
                 });
         });
 
-        // Výpočet zůstatkové ceny
+        // Výpočet zůstatkové ceny (včetně technického zhodnocení dle § 33 ZDP)
         function calculateResidualValue(asset) {
             let residualValue = asset.acquisitionCost; // Počáteční hodnota je pořizovací cena
             const currentYear = new Date().getFullYear();
 
-            asset.depreciations.forEach(depreciation => {
-                if (depreciation.year <= currentYear) {
-                    residualValue -= depreciation.amount;
-                }
-            });
+            // Technické zhodnocení zvyšuje vstupní (zůstatkovou) cenu
+            if (Array.isArray(asset.technicalAppreciations)) {
+                asset.technicalAppreciations.forEach(ta => {
+                    if (ta.year <= currentYear) {
+                        residualValue += ta.amount;
+                    }
+                });
+            }
+
+            if (Array.isArray(asset.depreciations)) {
+                asset.depreciations.forEach(depreciation => {
+                    if (depreciation.year <= currentYear) {
+                        residualValue -= depreciation.amount;
+                    }
+                });
+            }
 
             return residualValue;
         }
