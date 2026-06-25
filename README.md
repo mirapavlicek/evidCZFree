@@ -1,6 +1,6 @@
 # Evidence Majetku
 
-**Evidence Majetku** je jednoduchá webová aplikace napsaná v C# (.NET 8), která slouží k evidenci dlouhodobého a krátkodobého majetku, včetně výpočtu odpisů a správy technických zhodnocení. Aplikace běží jako konzolová aplikace se zabudovaným webovým serverem a ukládá data o majetku do samostatných JSON souborů. Grafické rozhraní je vytvořeno v **Materialize** frameworku.
+**Evidence Majetku** je jednoduchá webová aplikace napsaná v C# (.NET 8), která slouží k evidenci dlouhodobého a krátkodobého majetku, včetně výpočtu odpisů a správy technických zhodnocení. Aplikace běží jako konzolová aplikace se zabudovaným webovým serverem a ukládá data o majetku do vestavěné databáze **LiteDB** (jeden soubor `data/evidence.db`). Grafické rozhraní je vytvořeno v **Materialize** frameworku.
 
 ## Funkce
 
@@ -30,7 +30,23 @@ Aplikace při generování odpisů tyto podmínky kontroluje a v případě rozp
 vrátí srozumitelné upozornění místo vygenerování neplatného odpisového plánu.
 - **Přihlášení uživatelů** – Základní přihlašovací systém s uložením uživatelských účtů v JSON souborech.
 - **Formuláře pro přidávání nového majetku** – Uživatelé mohou přidávat nové položky prostřednictvím formulářů, včetně možnosti zadání výrobce a dodavatele.
-- **Ukládání dat** – Data o majetku jsou ukládána do samostatných JSON souborů.
+- **Ukládání dat** – Data o majetku jsou uložena ve vestavěné databázi LiteDB (`data/evidence.db`).
+- **Import existujících JSON** – Soubory z dřívější verze (`data/*.json`) se automaticky naimportují při startu a lze je importovat i ručně tlačítkem **Import JSON** v seznamu majetku.
+
+## Ukládání dat a databáze
+
+Aplikace používá vestavěnou (embedded) databázi **LiteDB** – běží zcela lokálně, bez nutnosti
+samostatného databázového serveru, a ukládá vše do jediného souboru `data/evidence.db`.
+
+### Migrace ze starší verze (import JSON)
+
+Dřívější verze ukládala každý majetek do samostatného souboru `data/<číslo>.json`. Migrace je
+automatická:
+
+- **Při startu** aplikace naimportuje všechny `data/*.json` do databáze a zpracované soubory
+  přesune do `data/imported/` (aby se neimportovaly opakovaně). Čísla majetku zůstávají zachována.
+- **Ručně** lze import kdykoli spustit tlačítkem *Import JSON* v seznamu majetku, případně
+  voláním `POST /import-json`.
 
 ## Požadavky
 
@@ -58,7 +74,7 @@ vrátí srozumitelné upozornění místo vygenerování neplatného odpisového
 
 - **Program.cs** – Hlavní serverový kód aplikace, který spravuje zpracování požadavků a routování.
 - **HTML soubory** – Frontend soubory pro zobrazení dat, včetně přihlašovacího formuláře, seznamu majetku a formuláře pro přidávání majetku.
-- **data/** – Adresář, kde jsou uloženy JSON soubory pro jednotlivé položky majetku a uživatelská data.
+- **data/** – Adresář s databází `evidence.db` (LiteDB) a podsložkou `imported/` s již naimportovanými JSON soubory.
 - **assets/** – CSS a JavaScript soubory včetně knihovny Materialize.
 
 ## Použití
@@ -75,4 +91,7 @@ listener.Prefixes.Add("http://+:<cisloportu>/");
 ```
 
 Je tam navržené i přihlašování ze způsobu použití aplikace je to celkem nepotřebné. 
-Data jsou ukládány do JSON struktur a je možné je ručně editovat, překopírovat, atd... aplikace není závislá na databázy.
+Data jsou nově uložena ve vestavěné databázi LiteDB (`data/evidence.db`) – aplikace tak
+nepotřebuje samostatný databázový server a běží čistě lokálně. Pro zálohu stačí zkopírovat
+soubor `data/evidence.db`. Data z původní verze ve formátu JSON se automaticky naimportují
+(viz sekce *Ukládání dat a databáze*).
