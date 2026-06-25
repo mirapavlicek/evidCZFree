@@ -6,8 +6,28 @@
 
 - **Seznam aktivního a vyřazeného majetku** – Možnost zobrazit všechny aktivní a vyřazené položky majetku.
 - **Přidávání a editace majetku** – Uživatelé mohou přidávat nové položky majetku a zobrazovat detailní informace o existujícím majetku.
-- **Výpočty odpisů** – Aplikace podporuje dva způsoby výpočtu odpisů (rovnoměrné a zrychlené) na základě odpisových skupin.
-- **Zůstatková cena** – Výpočet zůstatkové ceny majetku na základě odpisů.
+- **Výpočty odpisů** – Aplikace podporuje rovnoměrné, zrychlené i mimořádné odpisy a evidenci bez odpisů, vždy na základě odpisových skupin.
+- **Zůstatková cena** – Výpočet zůstatkové ceny majetku na základě odpisů a technického zhodnocení.
+
+## Legislativa (stav 2026)
+
+Výpočty a kontroly vycházejí ze zákona č. 586/1992 Sb., o daních z příjmů (ZDP). Daňové
+parametry jsou soustředěny na jednom místě ve třídě `Legislation` v souboru `Program.cs`,
+takže při změně zákona se upravují centrálně:
+
+- **Rovnoměrné odpisy** – roční odpisové sazby dle § 31 odst. 1 ZDP.
+- **Zrychlené odpisy** – koeficienty dle § 32 odst. 1 ZDP.
+- **Hranice hmotného majetku 80 000 Kč** (§ 26 odst. 2 ZDP, od roku 2021). Movitý majetek
+  pod tuto hranici je drobný majetek a daňově se neodpisuje.
+- **Hranice technického zhodnocení 80 000 Kč** (§ 33 ZDP). Technické zhodnocení zvyšuje
+  vstupní (zůstatkovou) cenu majetku.
+- **Nehmotný majetek** – daňové odpisy byly zrušeny od roku 2021 (zrušení § 32a ZDP),
+  uplatní se účetní odpis.
+- **Mimořádné odpisy (§ 30a ZDP)** – pro majetek v odpisové skupině 1 a 2 pořízený
+  v letech 2020–2023; od roku 2024 pouze pro bezemisní vozidla.
+
+Aplikace při generování odpisů tyto podmínky kontroluje a v případě rozporu se zákonem
+vrátí srozumitelné upozornění místo vygenerování neplatného odpisového plánu.
 - **Přihlášení uživatelů** – Základní přihlašovací systém s uložením uživatelských účtů v JSON souborech.
 - **Formuláře pro přidávání nového majetku** – Uživatelé mohou přidávat nové položky prostřednictvím formulářů, včetně možnosti zadání výrobce a dodavatele.
 - **Ukládání dat** – Data o majetku jsou ukládána do samostatných JSON souborů.
