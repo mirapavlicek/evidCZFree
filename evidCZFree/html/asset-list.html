@@ -30,7 +30,16 @@
 
     <!-- Seznam majetku -->
     <div class="container">
-        
+
+        <!-- Akční lišta -->
+        <div class="row" style="margin-bottom: 8px;">
+            <div class="col s12 right-align">
+                <button id="importJsonBtn" class="btn-flat waves-effect" title="Naimportovat JSON soubory ze složky data/">
+                    <i class="material-icons left">upload_file</i>Import JSON
+                </button>
+            </div>
+        </div>
+
         <!-- Dashboard Statistiky -->
         <div class="row">
             <div class="col s12 m4">
@@ -128,6 +137,29 @@
         const rowsPerPage = 25;
 
         document.addEventListener('DOMContentLoaded', function () {
+            const importBtn = document.getElementById('importJsonBtn');
+            if (importBtn) {
+                importBtn.addEventListener('click', function () {
+                    importBtn.disabled = true;
+                    fetch('http://localhost:8080/import-json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                        .then(response => response.json())
+                        .then(data => {
+                            const count = data.imported || 0;
+                            M.toast({ html: count > 0 ? ('Naimportováno ' + count + ' majetků z JSON.') : 'Žádné nové JSON soubory k importu.', classes: count > 0 ? 'green' : 'grey' });
+                            if (count > 0) {
+                                setTimeout(() => window.location.reload(), 900);
+                            } else {
+                                importBtn.disabled = false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Chyba při importu:', error);
+                            M.toast({ html: 'Chyba při importu JSON.', classes: 'red' });
+                            importBtn.disabled = false;
+                        });
+                });
+            }
+
             fetch('http://localhost:8080/get-assets')
                 .then(response => response.json())
                 .then(assets => {
