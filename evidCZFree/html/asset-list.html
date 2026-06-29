@@ -141,7 +141,7 @@
             if (importBtn) {
                 importBtn.addEventListener('click', function () {
                     importBtn.disabled = true;
-                    fetch('http://localhost:8080/import-json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                    fetch('/import-json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                         .then(response => response.json())
                         .then(data => {
                             const count = data.imported || 0;
@@ -160,7 +160,7 @@
                 });
             }
 
-            fetch('http://localhost:8080/get-assets')
+            fetch('/get-assets')
                 .then(response => response.json())
                 .then(assets => {
                     const activeAssets = document.getElementById('activeAssets');

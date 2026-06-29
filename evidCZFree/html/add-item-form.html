@@ -224,7 +224,7 @@
         });
 
         function fetchManufacturersAndSuppliers() {
-            fetch('http://localhost:8080/get-manufacturers-suppliers')
+            fetch('/get-manufacturers-suppliers')
                 .then(response => response.json())
                 .then(data => {
                     const manufacturerList = document.getElementById('manufacturerList');
@@ -279,7 +279,7 @@
                 description: document.getElementById('description').value || null
             };
 
-            fetch('http://localhost:8080/add-item', {
+            fetch('/add-item', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(asset)

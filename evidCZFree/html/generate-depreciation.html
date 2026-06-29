@@ -94,7 +94,7 @@
 
         // Načíst data majetku z JSON a naplnit stránku
         function loadAssetData(assetNumber) {
-            fetch(`http://localhost:8080/get-asset?assetNumber=${assetNumber}`)
+            fetch(`/get-asset?assetNumber=${assetNumber}`)
                 .then(response => response.json())
                 .then(asset => {
                     // Naplnění základních informací
@@ -136,7 +136,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             const assetNumber = urlParams.get('assetNumber');
             
-            let url = `http://localhost:8080/generate-depreciations?assetNumber=${assetNumber}`;
+            let url = `/generate-depreciations?assetNumber=${assetNumber}`;
             if (force) {
                 if (!confirm('Opravdu chcete přegenerovat odpisy? Stávající plán bude smazán.')) {
                     return;
