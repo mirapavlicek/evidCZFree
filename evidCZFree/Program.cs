@@ -12,8 +12,12 @@ class Program
 {
     static void Main(string[] args)
     {
-        string htmlFolder = Path.Combine(Directory.GetCurrentDirectory(), "html");
-        string jsonFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
+        // Adresáře hledáme vedle spustitelného souboru (AppContext.BaseDirectory),
+        // nikoli v aktuálním pracovním adresáři – aplikace tak funguje i při
+        // spuštění z jiné složky (dvojklik, plná cesta, služba apod.).
+        string baseDir = AppContext.BaseDirectory;
+        string htmlFolder = Path.Combine(baseDir, "html");
+        string jsonFolder = Path.Combine(baseDir, "data");
 
         // Zajištění existence složky s daty
         if (!Directory.Exists(jsonFolder))
@@ -352,7 +356,7 @@ class Program
 
     public static void HandleLogin(HttpListenerRequest request, HttpListenerResponse response)
     {
-        string filePath = Path.Combine(Directory.GetCurrentDirectory(), "user.json");
+        string filePath = Path.Combine(AppContext.BaseDirectory, "user.json");
 
 
 
@@ -531,8 +535,8 @@ class Program
 
     public static void ServeStaticFile(HttpListenerRequest request, HttpListenerResponse response)
     {
-        // Získání cesty k souboru podle URL
-        string filePath = Path.Combine(Directory.GetCurrentDirectory(), request.Url.AbsolutePath.TrimStart('/'));
+        // Získání cesty k souboru podle URL (relativně ke spustitelnému souboru)
+        string filePath = Path.Combine(AppContext.BaseDirectory, request.Url.AbsolutePath.TrimStart('/'));
 
         // Ověření, zda soubor existuje
         if (File.Exists(filePath))
