@@ -1,6 +1,6 @@
 # Evidence Majetku
 
-**Evidence Majetku** je jednoduchá webová aplikace napsaná v C# (.NET 8), která slouží k evidenci dlouhodobého a krátkodobého majetku, včetně výpočtu odpisů a správy technických zhodnocení. Aplikace běží jako konzolová aplikace se zabudovaným webovým serverem a ukládá data o majetku do vestavěné databáze **LiteDB** (jeden soubor `data/evidence.db`). Grafické rozhraní je vytvořeno v **Materialize** frameworku.
+**Evidence Majetku** je jednoduchá webová aplikace napsaná v C# (.NET 10), která slouží k evidenci dlouhodobého a krátkodobého majetku, včetně výpočtu odpisů a správy technických zhodnocení. Aplikace běží jako konzolová aplikace se zabudovaným webovým serverem a ukládá data o majetku do vestavěné databáze **LiteDB** (jeden soubor `data/evidence.db`). Grafické rozhraní je vytvořeno v **Materialize** frameworku.
 
 ## Funkce
 
@@ -50,7 +50,7 @@ automatická:
 
 ## Požadavky
 
-- .NET 8 SDK
+- .NET 10 SDK
 - Materialize CSS a JavaScript knihovna (lokálně přidána do projektu)
 - Webový prohlížeč (pro uživatelské rozhraní)
 

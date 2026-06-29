@@ -11,7 +11,7 @@ a zpřístupnit ho ostatním zařízením v rámci [Tailscale](https://tailscale
 
 ## 1. Příprava buildu
 
-### Varianta A – cílový NTB má nainstalovaný .NET 8
+### Varianta A – cílový NTB má nainstalovaný .NET 10
 ```bash
 git clone https://github.com/mirapavlicek/evidCZFree.git
 cd evidCZFree/evidCZFree
