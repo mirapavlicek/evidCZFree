@@ -7,62 +7,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Do výstupu (a do publish balíčku) kopírujeme celé složky html/ a assets/,
+       aby v balíčku nechyběl žádný soubor (např. custom.css). Záložní backup.txt
+       se nešíří. -->
   <ItemGroup>
-    <Compile Remove="assets\fonts\**" />
-    <Compile Remove="assets\font\**" />
-    <EmbeddedResource Remove="assets\fonts\**" />
-    <EmbeddedResource Remove="assets\font\**" />
-    <None Remove="assets\fonts\**" />
-    <None Remove="assets\font\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="assets\css\materialize.css" />
-    <None Remove="assets\css\materialize.min.css" />
-    <None Remove="assets\js\jquery-2.1.1-vsdoc.js" />
-    <None Remove="assets\js\jquery-2.1.1.js" />
-    <None Remove="assets\js\jquery-2.1.1.min.map" />
-    <None Remove="assets\js\jquery.min.js" />
-    <None Remove="assets\js\materialize.js" />
-    <None Remove="assets\js\materialize.min.js" />
-    <None Remove="html\add-item-form.html" />
-    <None Remove="html\asset-list.html" />
-    <None Remove="html\backup.txt" />
-    <None Remove="html\generate-depreciation.html" />
-    <None Remove="html\login.html" />
-    <None Remove="html\view-asset.html" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="assets\js\materialize.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <Content Include="html\**\*" Exclude="html\backup.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="assets\js\materialize.min.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="assets\css\materialize.css">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="assets\css\materialize.min.css">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="html\add-item-form.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="html\asset-list.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="html\generate-depreciation.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="html\login.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="html\view-asset.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <Content Include="assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
