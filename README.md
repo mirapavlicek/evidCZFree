@@ -48,7 +48,24 @@ automatická:
 - **Ručně** lze import kdykoli spustit tlačítkem *Import JSON* v seznamu majetku, případně
   voláním `POST /import-json`.
 
-## Požadavky
+## Stažení hotového balíčku (GitHub Release)
+
+Předkompilované, **samostatně spustitelné** balíčky (není potřeba instalovat .NET) jsou
+ke stažení v sekci [**Releases**](../../releases) – pro Windows, Linux i macOS.
+
+1. Stáhni archiv pro svůj systém:
+   - `evidCZFree-win-x64.zip` (Windows)
+   - `evidCZFree-linux-x64.zip` (Linux)
+   - `evidCZFree-osx-x64.zip` / `evidCZFree-osx-arm64.zip` (macOS Intel / Apple Silicon)
+2. Rozbal archiv a spusť `evidCZFree` (na Windows `evidCZFree.exe`) **ze složky archivu**
+   (vedle spustitelného souboru musí zůstat adresáře `html/` a `assets/`).
+3. Otevři `http://localhost:8080`.
+
+> **Vydání nové verze:** Release se vytvoří automaticky (GitHub Actions) po pushnutí
+> verzního tagu, např. `git tag v1.0.0 && git push origin v1.0.0`, nebo ručně přes
+> záložku *Actions → Release → Run workflow*. Workflow je v `.github/workflows/release.yml`.
+
+## Požadavky (pro sestavení ze zdrojového kódu)
 
 - .NET 10 SDK
 - Materialize CSS a JavaScript knihovna (lokálně přidána do projektu)
