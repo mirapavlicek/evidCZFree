@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seznam majetku</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
     <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
@@ -29,28 +30,40 @@
 
     <!-- Seznam majetku -->
     <div class="container">
-        
+
+        <!-- Akční lišta -->
+        <div class="row" style="margin-bottom: 8px;">
+            <div class="col s12 right-align">
+                <button id="importJsonBtn" class="btn-flat waves-effect" title="Naimportovat JSON soubory ze složky data/">
+                    <i class="material-icons left">upload_file</i>Import JSON
+                </button>
+            </div>
+        </div>
+
         <!-- Dashboard Statistiky -->
         <div class="row">
             <div class="col s12 m4">
                 <div class="card stats-card">
-                    <div class="card-content">
+                    <div class="stats-icon"><i class="material-icons">inventory_2</i></div>
+                    <div class="stats-body">
                         <span class="label">Celkový počet aktiv</span>
                         <div class="count" id="totalAssetsCount">0</div>
                     </div>
                 </div>
             </div>
             <div class="col s12 m4">
-                <div class="card stats-card">
-                    <div class="card-content">
-                        <span class="label">Celková hodnota (Pořizovací)</span>
+                <div class="card stats-card accent-sky">
+                    <div class="stats-icon"><i class="material-icons">payments</i></div>
+                    <div class="stats-body">
+                        <span class="label">Celková pořizovací hodnota</span>
                         <div class="count" id="totalAcquisitionCost">0 Kč</div>
                     </div>
                 </div>
             </div>
             <div class="col s12 m4">
-                <div class="card stats-card">
-                    <div class="card-content">
+                <div class="card stats-card accent-emerald">
+                    <div class="stats-icon"><i class="material-icons">savings</i></div>
+                    <div class="stats-body">
                         <span class="label">Celková zůstatková hodnota</span>
                         <div class="count" id="totalResidualValue">0 Kč</div>
                     </div>
@@ -124,7 +137,30 @@
         const rowsPerPage = 25;
 
         document.addEventListener('DOMContentLoaded', function () {
-            fetch('http://localhost:8080/get-assets')
+            const importBtn = document.getElementById('importJsonBtn');
+            if (importBtn) {
+                importBtn.addEventListener('click', function () {
+                    importBtn.disabled = true;
+                    fetch('/import-json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                        .then(response => response.json())
+                        .then(data => {
+                            const count = data.imported || 0;
+                            M.toast({ html: count > 0 ? ('Naimportováno ' + count + ' majetků z JSON.') : 'Žádné nové JSON soubory k importu.', classes: count > 0 ? 'green' : 'grey' });
+                            if (count > 0) {
+                                setTimeout(() => window.location.reload(), 900);
+                            } else {
+                                importBtn.disabled = false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Chyba při importu:', error);
+                            M.toast({ html: 'Chyba při importu JSON.', classes: 'red' });
+                            importBtn.disabled = false;
+                        });
+                });
+            }
+
+            fetch('/get-assets')
                 .then(response => response.json())
                 .then(assets => {
                     const activeAssets = document.getElementById('activeAssets');
@@ -202,16 +238,27 @@
                 });
         });
 
-        // Výpočet zůstatkové ceny
+        // Výpočet zůstatkové ceny (včetně technického zhodnocení dle § 33 ZDP)
         function calculateResidualValue(asset) {
             let residualValue = asset.acquisitionCost; // Počáteční hodnota je pořizovací cena
             const currentYear = new Date().getFullYear();
 
-            asset.depreciations.forEach(depreciation => {
-                if (depreciation.year <= currentYear) {
-                    residualValue -= depreciation.amount;
-                }
-            });
+            // Technické zhodnocení zvyšuje vstupní (zůstatkovou) cenu
+            if (Array.isArray(asset.technicalAppreciations)) {
+                asset.technicalAppreciations.forEach(ta => {
+                    if (ta.year <= currentYear) {
+                        residualValue += ta.amount;
+                    }
+                });
+            }
+
+            if (Array.isArray(asset.depreciations)) {
+                asset.depreciations.forEach(depreciation => {
+                    if (depreciation.year <= currentYear) {
+                        residualValue -= depreciation.amount;
+                    }
+                });
+            }
 
             return residualValue;
         }

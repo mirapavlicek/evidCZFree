@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Přidat nový majetek</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
     <link href="/assets/css/custom.css" rel="stylesheet">
     <style>
@@ -118,6 +119,29 @@
                         </div>
                     </div>
 
+                    <!-- Legislativní upozornění + bezemisní vozidlo -->
+                    <div class="row">
+                        <div class="col s12 m7">
+                            <p class="grey-text text-darken-1" style="margin-top: 0;">
+                                <i class="material-icons tiny">info_outline</i>
+                                Hmotný movitý majetek se daňově odpisuje až od vstupní ceny
+                                <strong>80&nbsp;000&nbsp;Kč</strong> (§&nbsp;26 ZDP). Nižší cena = drobný majetek
+                                (zvolte „Bez odpisů“). Daňové odpisy nehmotného majetku byly zrušeny od roku 2021.
+                            </p>
+                        </div>
+                        <div class="col s12 m5">
+                            <p style="margin-top: 0;">Bezemisní vozidlo (pro mimořádné odpisy § 30a)</p>
+                            <div class="switch">
+                                <label>
+                                    Ne
+                                    <input type="checkbox" id="isZeroEmissionVehicle">
+                                    <span class="lever"></span>
+                                    Ano
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Datum uvedení do provozu a Délka záruky (společný řádek) -->
                     <div class="row">
                         <div class="input-field col s12 m6">
@@ -200,7 +224,7 @@
         });
 
         function fetchManufacturersAndSuppliers() {
-            fetch('http://localhost:8080/get-manufacturers-suppliers')
+            fetch('/get-manufacturers-suppliers')
                 .then(response => response.json())
                 .then(data => {
                     const manufacturerList = document.getElementById('manufacturerList');
@@ -241,6 +265,7 @@
                 assetType: document.getElementById('assetType').value,
                 depreciationGroup: depreciationGroup, // Celý objekt depreciationGroup
                 depreciationMethod: document.getElementById('depreciationMethod').value,
+                isZeroEmissionVehicle: document.getElementById('isZeroEmissionVehicle').checked,
                 acquisitionCost: acquisitionCost,
                 taxValue: taxValue, // Převzato z pořizovací ceny, pokud není vyplněno
                 accountingValue: accountingValue, // Převzato z pořizovací ceny, pokud není vyplněno
@@ -254,7 +279,7 @@
                 description: document.getElementById('description').value || null
             };
 
-            fetch('http://localhost:8080/add-item', {
+            fetch('/add-item', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(asset)

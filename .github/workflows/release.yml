@@ -1,0 +1,80 @@
+name: Release
+
+# Sestaví spustitelné balíčky (self-contained, bez nutnosti instalovat .NET)
+# pro Windows, Linux a macOS a publikuje je jako GitHub Release ke stažení.
+#
+# Spuštění:
+#   1) vytvořením a pushnutím verzního tagu, např.:  git tag v1.0.0 && git push origin v1.0.0
+#   2) ručně přes záložku Actions -> Release -> Run workflow (zadej tag)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Verze / tag (např. v1.0.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, linux-x64, osx-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish (self-contained, single-file)
+        run: >
+          dotnet publish evidCZFree/evidCZFree.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:DebugType=none
+          -o publish/${{ matrix.rid }}
+
+      - name: Zabalit do ZIP
+        run: |
+          cd publish/${{ matrix.rid }}
+          rm -f *.pdb
+          zip -r "../../evidCZFree-${{ matrix.rid }}.zip" .
+
+      - name: Uložit artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidCZFree-${{ matrix.rid }}
+          path: evidCZFree-${{ matrix.rid }}.zip
+          retention-days: 7
+
+  release:
+    name: Publikovat Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stáhnout artefakty
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Vytvořit GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Evidence Majetku ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: dist/*.zip
