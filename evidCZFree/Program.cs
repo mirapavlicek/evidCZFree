@@ -31,11 +31,21 @@ class Program
             Console.WriteLine($"Importováno {importedCount} majetků z JSON souborů do databáze.");
         }
 
-        // Spuštění jednoduchého webového serveru
+        // Spuštění jednoduchého webového serveru.
+        // Adresu, na které server naslouchá, lze nastavit (užitečné pro přístup
+        // přes síť / Tailscale). Priorita: 1) argument příkazové řádky,
+        // 2) proměnná prostředí EVIDENCE_URL_PREFIX, 3) výchozí localhost.
+        // Příklady prefixu:
+        //   http://localhost:8080/   – pouze tento počítač (výchozí)
+        //   http://+:8080/           – všechna rozhraní (Linux/macOS bez práv;
+        //                              Windows vyžaduje netsh urlacl nebo admin)
+        string urlPrefix = ResolveUrlPrefix(args);
+
         HttpListener listener = new HttpListener();
-        listener.Prefixes.Add("http://localhost:8080/");
+        listener.Prefixes.Add(urlPrefix);
         listener.Start();
-        Console.WriteLine("Server is listening...");
+        Console.WriteLine($"Server naslouchá na {urlPrefix}");
+        Console.WriteLine("Ukončení serveru: Ctrl+C");
 
         while (true)
         {
@@ -280,6 +290,31 @@ class Program
         response.ContentLength64 = buffer.Length;
         response.OutputStream.Write(buffer, 0, buffer.Length);
         response.OutputStream.Close();
+    }
+
+    // Určí adresu (prefix), na které bude HTTP server naslouchat.
+    public static string ResolveUrlPrefix(string[] args)
+    {
+        string prefix = null;
+
+        if (args != null && args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
+        {
+            prefix = args[0].Trim();
+        }
+        else
+        {
+            string env = Environment.GetEnvironmentVariable("EVIDENCE_URL_PREFIX");
+            if (!string.IsNullOrWhiteSpace(env)) prefix = env.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            prefix = "http://localhost:8080/";
+        }
+
+        // HttpListener vyžaduje, aby prefix končil lomítkem.
+        if (!prefix.EndsWith("/")) prefix += "/";
+        return prefix;
     }
 
     public static decimal CalculateResidualValue(Asset asset)
