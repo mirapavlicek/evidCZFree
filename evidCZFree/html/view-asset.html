@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zobrazit majetek</title>
+    <title>Upravit majetek</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="/assets/css/materialize.min.css" rel="stylesheet">
@@ -28,61 +28,142 @@
         </div>
     </nav>
 
-    <!-- Formulář pro zobrazení majetku -->
     <div class="container">
         <div class="card">
             <div class="card-content">
-                <span class="card-title">Detail majetku</span>
-                
-                <form id="viewAssetForm">
+                <span class="card-title">Detail a úprava majetku</span>
+
+                <!-- Upozornění, pokud už jsou vygenerované odpisy -->
+                <div id="depreciationWarning" class="card-panel amber lighten-4" style="display:none; border-radius:10px;">
+                    <i class="material-icons tiny">warning</i>
+                    Tento majetek má vygenerované odpisy. Úprava vstupní ceny, odpisové skupiny nebo
+                    způsobu odpisování <strong>automaticky nepřepočítá odpisový plán</strong> – v takovém
+                    případě odpisy následně přegenerujte.
+                </div>
+
+                <form id="editAssetForm">
                     <h5>Základní informace</h5>
                     <div class="row">
                         <div class="input-field col s12 m9">
                             <i class="material-icons prefix">label</i>
-                            <input id="name" type="text" class="validate" readonly>
+                            <input id="name" type="text" class="validate" required>
                             <label for="name">Název majetku</label>
                         </div>
                         <div class="input-field col s12 m3">
                             <i class="material-icons prefix">event</i>
-                            <input id="acquisitionDate" type="text" class="datepicker" readonly>
+                            <input id="acquisitionDate" type="text" class="datepicker" required>
                             <label for="acquisitionDate">Datum pořízení</label>
                         </div>
                     </div>
 
                     <div class="row">
-                        <div class="input-field col s12 m6">
-                            <i class="material-icons prefix">business</i>
-                            <input id="manufacturer" type="text" class="validate" readonly>
-                            <label for="manufacturer">Výrobce</label>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">category</i>
+                            <select id="assetType" required>
+                                <option value="hmotný">Hmotný</option>
+                                <option value="nehmotný">Nehmotný</option>
+                            </select>
+                            <label for="assetType">Typ majetku</label>
                         </div>
-                        <div class="input-field col s12 m6">
-                            <i class="material-icons prefix">local_shipping</i>
-                            <input id="supplier" type="text" class="validate" readonly>
-                            <label for="supplier">Dodavatel</label>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">folder</i>
+                            <select id="depreciationGroup" required>
+                                <option value='{"groupNumber":1,"groupName":"Notebooky, nářadí, kancelářská technika","depreciationLength":3}'>1 - Notebooky, nářadí, kancelářská technika (3 roky)</option>
+                                <option value='{"groupNumber":2,"groupName":"Osobní a nákladní auta, nábytek, TV","depreciationLength":5}'>2 - Osobní a nákladní auta, nábytek, TV (5 let)</option>
+                                <option value='{"groupNumber":3,"groupName":"Výrobní stroje, kotle, vytápění","depreciationLength":10}'>3 - Výrobní stroje, kotle, vytápění (10 let)</option>
+                                <option value='{"groupNumber":4,"groupName":"Budovy ze dřeva, plynovody","depreciationLength":20}'>4 - Budovy ze dřeva, plynovody (20 let)</option>
+                                <option value='{"groupNumber":5,"groupName":"Výrobní budovy, mosty, silnice","depreciationLength":30}'>5 - Výrobní budovy, mosty, silnice (30 let)</option>
+                                <option value='{"groupNumber":6,"groupName":"Administrativní budovy, kulturní památky","depreciationLength":50}'>6 - Administrativní budovy, kulturní památky (50 let)</option>
+                            </select>
+                            <label for="depreciationGroup">Odpisová skupina</label>
+                        </div>
+                        <div class="input-field col s12 m4">
+                            <i class="material-icons prefix">trending_down</i>
+                            <select id="depreciationMethod" required>
+                                <option value="rovnoměrný">Rovnoměrný</option>
+                                <option value="zrychlený">Zrychlený</option>
+                                <option value="mimořádný">Mimořádný</option>
+                                <option value="leasing">Leasing</option>
+                                <option value="bez_odpisů">Bez odpisů</option>
+                            </select>
+                            <label for="depreciationMethod">Způsob odpisování</label>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="input-field col s12 m4">
                             <i class="material-icons prefix">attach_money</i>
-                            <input id="acquisitionCost" type="text" class="validate" readonly>
+                            <input id="acquisitionCost" type="number" class="validate" required>
                             <label for="acquisitionCost">Pořizovací cena (Kč)</label>
                         </div>
                         <div class="input-field col s12 m4">
-                            <i class="material-icons prefix">account_balance_wallet</i>
-                            <input id="accountingValue" type="text" class="validate" readonly>
-                            <label for="accountingValue">Účetní cena (Kč)</label>
+                            <i class="material-icons prefix">money_off</i>
+                            <input id="taxValue" type="number" class="validate">
+                            <label for="taxValue">Vstupní cena daňová</label>
                         </div>
                         <div class="input-field col s12 m4">
-                            <i class="material-icons prefix">money_off</i>
-                            <input id="taxValue" type="text" class="validate" readonly>
-                            <label for="taxValue">Daňová cena (Kč)</label>
+                            <i class="material-icons prefix">account_balance_wallet</i>
+                            <input id="accountingValue" type="number" class="validate">
+                            <label for="accountingValue">Vstupní cena účetní</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">date_range</i>
+                            <input id="commissioningDate" type="text" class="datepicker">
+                            <label for="commissioningDate">Datum uvedení do provozu</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">verified_user</i>
+                            <input id="warrantyPeriod" type="number" class="validate">
+                            <label for="warrantyPeriod">Délka záruky (v měsících)</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">fingerprint</i>
+                            <input id="serialNumber" type="text" class="validate">
+                            <label for="serialNumber">Sériové číslo</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">qr_code</i>
+                            <input id="partNumber" type="text" class="validate">
+                            <label for="partNumber">Part number</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">business</i>
+                            <input id="manufacturer" type="text" class="validate">
+                            <label for="manufacturer">Výrobce</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                            <i class="material-icons prefix">local_shipping</i>
+                            <input id="supplier" type="text" class="validate">
+                            <label for="supplier">Dodavatel</label>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-bottom:0;">
+                        <div class="col s12">
+                            <p style="margin-top:0;">Bezemisní vozidlo (pro mimořádné odpisy § 30a)</p>
+                            <div class="switch">
+                                <label>
+                                    Ne
+                                    <input type="checkbox" id="isZeroEmissionVehicle">
+                                    <span class="lever"></span>
+                                    Ano
+                                </label>
+                            </div>
                         </div>
                     </div>
 
                     <div class="input-field">
                         <i class="material-icons prefix">description</i>
-                        <textarea id="description" class="materialize-textarea" readonly></textarea>
+                        <textarea id="description" class="materialize-textarea"></textarea>
                         <label for="description">Popis</label>
                     </div>
 
@@ -94,14 +175,13 @@
                         <div class="input-field col s12 m6">
                             <i class="material-icons prefix">delete_sweep</i>
                             <select id="disposalMethod">
-                                <option value="" disabled selected>Vyber způsob vyřazení</option>
+                                <option value="" selected>— nevyřazeno —</option>
                                 <option value="prodej">Prodej</option>
                                 <option value="likvidace">Likvidace</option>
                                 <option value="prevod">Převod</option>
                             </select>
                             <label for="disposalMethod">Způsob vyřazení</label>
                         </div>
-
                         <div class="input-field col s12 m6">
                             <i class="material-icons prefix">event_busy</i>
                             <input id="disposalDate" type="text" class="datepicker">
@@ -115,7 +195,6 @@
                             <input id="disposalPrice" type="text" class="validate">
                             <label for="disposalPrice">Cena vyřazení (Kč)</label>
                         </div>
-
                         <div class="input-field col s12 m6">
                             <i class="material-icons prefix">receipt</i>
                             <input id="documentNumber" type="text" class="validate">
@@ -123,7 +202,6 @@
                         </div>
                     </div>
 
-                    <!-- Tlačítko na uložení změn -->
                     <div class="center-align" style="margin-top: 20px;">
                         <button class="btn waves-effect waves-light btn-large" type="submit">
                             <i class="material-icons left">save</i>Uložit změny
@@ -136,82 +214,135 @@
 
     <script src="/assets/js/materialize.min.js"></script>
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const assetNumber = urlParams.get('assetNumber');
+
         document.addEventListener('DOMContentLoaded', function () {
-            var dateElems = document.querySelectorAll('.datepicker');
-            M.Datepicker.init(dateElems, {
-                format: 'dd/mm/yyyy'
-            });
-
-            var selectElems = document.querySelectorAll('select');
-            M.FormSelect.init(selectElems);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const assetNumber = urlParams.get('assetNumber');
+            M.Datepicker.init(document.querySelectorAll('.datepicker'), { format: 'dd/mm/yyyy' });
+            M.FormSelect.init(document.querySelectorAll('select'));
 
             if (assetNumber) {
                 fetchAssetDetails(assetNumber);
             }
 
-            function fetchAssetDetails(assetNumber) {
-                fetch(`/get-asset?assetNumber=${assetNumber}`)
-                    .then(response => response.json())
-                    .then(asset => {
-                        document.getElementById('name').value = asset.name;
-                        document.getElementById('acquisitionDate').value = asset.acquisitionDate;
-                        document.getElementById('acquisitionCost').value = asset.acquisitionCost;
-                        document.getElementById('manufacturer').value = asset.manufacturer;
-                        document.getElementById('description').value = asset.description;
-                        document.getElementById('supplier').value = asset.supplier;
-                        document.getElementById('accountingValue').value = asset.accountingValue;
-                        document.getElementById('taxValue').value = asset.taxValue;
-
-                        if (asset.disposalMethod) {
-                            document.getElementById('disposalMethod').value = asset.disposalMethod;
-                        }
-                        if (asset.disposalDate) {
-                            document.getElementById('disposalDate').value = asset.disposalDate;
-                        }
-                        if (asset.disposalPrice) {
-                            document.getElementById('disposalPrice').value = asset.disposalPrice;
-                        }
-                        if (asset.documentNumber) {
-                            document.getElementById('documentNumber').value = asset.documentNumber;
-                        }
-
-                        M.updateTextFields();
-                    })
-                    .catch(error => console.error('Chyba při načítání majetku:', error));
-            }
-
-            // Přidání listeneru k formuláři
-            document.getElementById('viewAssetForm').addEventListener('submit', function (e) {
-                e.preventDefault();
-                const assetNumber = urlParams.get('assetNumber');
-
-                // Ošetříme disposalPrice před odesláním - převod na číslo
-                let disposalPriceValue = document.getElementById('disposalPrice').value.trim();
-                disposalPriceValue = disposalPriceValue ? parseFloat(disposalPriceValue) : null;
-
-                const updatedData = {
-                    disposalMethod: document.getElementById('disposalMethod').value || null,
-                    disposalDate: document.getElementById('disposalDate').value || null,
-                    disposalPrice: disposalPriceValue, // Převedeno na číslo nebo null
-                    documentNumber: document.getElementById('documentNumber').value || null
-                };
-
-                fetch(`/update-asset?assetNumber=${assetNumber}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedData)
-                }).then(response => {
-                    if (response.ok) {
-                        alert('Změny byly úspěšně uloženy!');
-                    } else {
-                        alert('Došlo k chybě při ukládání změn.');
-                    }
-                });
-            });
+            document.getElementById('editAssetForm').addEventListener('submit', saveAsset);
         });
+
+        function setValue(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.value = (value !== null && value !== undefined) ? value : '';
+        }
+
+        function fetchAssetDetails(assetNumber) {
+            fetch(`/get-asset?assetNumber=${assetNumber}`)
+                .then(response => response.json())
+                .then(asset => {
+                    setValue('name', asset.name);
+                    setValue('acquisitionDate', asset.acquisitionDate);
+                    setValue('commissioningDate', asset.commissioningDate);
+                    setValue('acquisitionCost', asset.acquisitionCost);
+                    setValue('taxValue', asset.taxValue);
+                    setValue('accountingValue', asset.accountingValue);
+                    setValue('warrantyPeriod', asset.warrantyPeriod);
+                    setValue('serialNumber', asset.serialNumber);
+                    setValue('partNumber', asset.partNumber);
+                    setValue('manufacturer', asset.manufacturer);
+                    setValue('supplier', asset.supplier);
+                    setValue('description', asset.description);
+
+                    // Typ majetku a způsob odpisování
+                    if (asset.assetType) document.getElementById('assetType').value = asset.assetType;
+                    if (asset.depreciationMethod) document.getElementById('depreciationMethod').value = asset.depreciationMethod;
+
+                    // Odpisová skupina – vybereme podle groupNumber
+                    if (asset.depreciationGroup) {
+                        const groupSelect = document.getElementById('depreciationGroup');
+                        Array.from(groupSelect.options).forEach(opt => {
+                            try {
+                                const val = JSON.parse(opt.value);
+                                if (val.groupNumber === asset.depreciationGroup.groupNumber) {
+                                    groupSelect.value = opt.value;
+                                }
+                            } catch (e) { /* ignore */ }
+                        });
+                    }
+
+                    // Bezemisní vozidlo
+                    document.getElementById('isZeroEmissionVehicle').checked = !!asset.isZeroEmissionVehicle;
+
+                    // Vyřazení
+                    if (asset.disposalMethod) setValue('disposalMethod', asset.disposalMethod);
+                    setValue('disposalDate', asset.disposalDate);
+                    setValue('disposalPrice', asset.disposalPrice);
+                    setValue('documentNumber', asset.documentNumber);
+
+                    // Upozornění na existující odpisy
+                    if (Array.isArray(asset.depreciations) && asset.depreciations.length > 0) {
+                        document.getElementById('depreciationWarning').style.display = 'block';
+                    }
+
+                    // Aktualizace Materialize komponent
+                    M.FormSelect.init(document.querySelectorAll('select'));
+                    M.updateTextFields();
+                    M.textareaAutoResize(document.getElementById('description'));
+                })
+                .catch(error => console.error('Chyba při načítání majetku:', error));
+        }
+
+        function saveAsset(e) {
+            e.preventDefault();
+
+            const acquisitionCost = parseFloat(document.getElementById('acquisitionCost').value) || 0;
+            const taxValueRaw = document.getElementById('taxValue').value;
+            const accountingValueRaw = document.getElementById('accountingValue').value;
+            const warrantyRaw = document.getElementById('warrantyPeriod').value;
+            const disposalPriceRaw = document.getElementById('disposalPrice').value.trim();
+
+            let depreciationGroup = null;
+            try { depreciationGroup = JSON.parse(document.getElementById('depreciationGroup').value); } catch (e) {}
+
+            const asset = {
+                name: document.getElementById('name').value,
+                assetType: document.getElementById('assetType').value,
+                depreciationGroup: depreciationGroup,
+                depreciationMethod: document.getElementById('depreciationMethod').value,
+                isZeroEmissionVehicle: document.getElementById('isZeroEmissionVehicle').checked,
+                acquisitionCost: acquisitionCost,
+                taxValue: taxValueRaw ? parseFloat(taxValueRaw) : acquisitionCost,
+                accountingValue: accountingValueRaw ? parseFloat(accountingValueRaw) : acquisitionCost,
+                acquisitionDate: document.getElementById('acquisitionDate').value,
+                commissioningDate: document.getElementById('commissioningDate').value,
+                warrantyPeriod: warrantyRaw ? parseInt(warrantyRaw, 10) : null,
+                serialNumber: document.getElementById('serialNumber').value || null,
+                partNumber: document.getElementById('partNumber').value || null,
+                manufacturer: document.getElementById('manufacturer').value || null,
+                supplier: document.getElementById('supplier').value || null,
+                description: document.getElementById('description').value || null,
+                disposalMethod: document.getElementById('disposalMethod').value || null,
+                disposalDate: document.getElementById('disposalDate').value || null,
+                disposalPrice: disposalPriceRaw ? parseFloat(disposalPriceRaw) : null,
+                documentNumber: document.getElementById('documentNumber').value || null
+            };
+
+            fetch(`/edit-asset?assetNumber=${assetNumber}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(asset)
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    M.toast({ html: 'Změny byly uloženy.', classes: 'green' });
+                    setTimeout(() => window.location.href = '/', 700);
+                } else {
+                    alert('Chyba: ' + (data.message || 'Změny se nepodařilo uložit.'));
+                }
+            })
+            .catch(error => {
+                console.error('Chyba při ukládání:', error);
+                alert('Došlo k chybě při komunikaci se serverem.');
+            });
+        }
     </script>
 </body>
 </html>

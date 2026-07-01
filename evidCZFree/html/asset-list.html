@@ -190,6 +190,12 @@
                         // Výpočet zůstatkové ceny
                         const residualValue = calculateResidualValue(asset);
 
+                        // Smazat lze pouze majetek bez vygenerovaných odpisů
+                        const hasDepreciations = Array.isArray(asset.depreciations) && asset.depreciations.length > 0;
+                        const deleteBtn = hasDepreciations
+                            ? `<button class="btn waves-effect waves-light btn-small grey lighten-1" disabled title="Nelze smazat – má vygenerované odpisy"><i class="material-icons">delete</i></button>`
+                            : `<button onclick="deleteAsset(${asset.assetNumber}, '${(asset.name || '').replace(/'/g, "\\'")}')" class="btn waves-effect waves-light btn-small red" title="Smazat majetek"><i class="material-icons">delete</i></button>`;
+
                         if (!disposalDate) {
                             // Aktualizace statistik
                             totalAssets++;
@@ -203,7 +209,7 @@
                                         <td>${acquisitionDate}</td>
                                         <td>${acquisitionCostFormatted}</td>
                                         <td>${currencyFormatter.format(residualValue)}</td>
-                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small"><i class="material-icons">visibility</i></a></td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small" title="Zobrazit / upravit"><i class="material-icons">edit</i></a> ${deleteBtn}</td>
                                         <td><a href="/generate-depreciation.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small orange"><i class="material-icons">calculate</i></a></td>
                                     `;
                             activeRows.push(row);
@@ -214,7 +220,7 @@
                                         <td>${asset.name}</td>
                                         <td>${disposalDate}</td>
                                         <td>${disposalPriceFormatted}</td>
-                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small"><i class="material-icons">visibility</i></a></td>
+                                        <td><a href="/view-asset.html?assetNumber=${asset.assetNumber}" class="btn waves-effect waves-light btn-small" title="Zobrazit / upravit"><i class="material-icons">edit</i></a> ${deleteBtn}</td>
                                     `;
                             removedRows.push(row);
                         }
@@ -237,6 +243,27 @@
                     console.error('Chyba při načítání majetku:', error);
                 });
         });
+
+        // Smazání majetku (pouze bez odpisů – ověřuje i server)
+        function deleteAsset(assetNumber, name) {
+            if (!confirm(`Opravdu smazat majetek č. ${assetNumber}${name ? ' – ' + name : ''}? Tuto akci nelze vzít zpět.`)) {
+                return;
+            }
+            fetch(`/delete-asset?assetNumber=${assetNumber}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok && data.success) {
+                        M.toast({ html: 'Majetek byl smazán.', classes: 'green' });
+                        setTimeout(() => window.location.reload(), 700);
+                    } else {
+                        alert('Chyba: ' + (data.message || 'Majetek se nepodařilo smazat.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Chyba při mazání:', error);
+                    alert('Došlo k chybě při komunikaci se serverem.');
+                });
+        }
 
         // Výpočet zůstatkové ceny (včetně technického zhodnocení dle § 33 ZDP)
         function calculateResidualValue(asset) {
