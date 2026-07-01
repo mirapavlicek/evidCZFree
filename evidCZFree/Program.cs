@@ -70,6 +70,21 @@ class Program
             {
                 HandleUpdateAsset(request, response, jsonFolder);
             }
+            // Endpoint pro úpravu (editaci) položky majetku
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/edit-asset")
+            {
+                HandleEditAsset(request, response, jsonFolder);
+            }
+            // Endpoint pro smazání položky majetku (pouze bez vygenerovaných odpisů)
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/delete-asset")
+            {
+                HandleDeleteAsset(request, response, jsonFolder);
+            }
+            // Endpoint pro uložení příznaků odpisů (zadáno do daní)
+            else if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/update-depreciations")
+            {
+                HandleUpdateDepreciations(request, response, jsonFolder);
+            }
             // Endpoint pro načtení unikátních výrobců a dodavatelů
             else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/get-manufacturers-suppliers")
             {
@@ -228,6 +243,12 @@ class Program
         public static void Upsert(Asset asset)
         {
             lock (_lock) { _assets.Upsert(asset); }
+        }
+
+        // Smaže majetek podle čísla. Vrací true, pokud byl záznam odstraněn.
+        public static bool Delete(int assetNumber)
+        {
+            lock (_lock) { return _assets.Delete(assetNumber); }
         }
     }
 
@@ -845,6 +866,151 @@ class Program
         }
     }
 
+    // Úprava (editace) položky majetku. Zachovává číslo majetku a odpisy.
+    public static void HandleEditAsset(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
+    {
+        int.TryParse(request.QueryString["assetNumber"], out int assetNumberId);
+        Asset existing = Db.Get(assetNumberId);
+
+        if (existing == null)
+        {
+            response.StatusCode = (int)HttpStatusCode.NotFound;
+            response.OutputStream.Close();
+            return;
+        }
+
+        try
+        {
+            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+            {
+                string json = reader.ReadToEnd();
+                Asset d = JsonSerializer.Deserialize<Asset>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                // Základní / popisné údaje
+                existing.Name = d.Name;
+                existing.AssetType = d.AssetType;
+                if (d.DepreciationGroup != null) existing.DepreciationGroup = d.DepreciationGroup;
+                existing.DepreciationMethod = d.DepreciationMethod;
+                existing.IsZeroEmissionVehicle = d.IsZeroEmissionVehicle;
+                existing.AcquisitionCost = d.AcquisitionCost;
+                existing.TaxValue = d.TaxValue;
+                existing.AccountingValue = d.AccountingValue;
+                existing.AcquisitionDate = d.AcquisitionDate;
+                existing.CommissioningDate = d.CommissioningDate;
+                existing.WarrantyPeriod = d.WarrantyPeriod;
+                existing.SerialNumber = d.SerialNumber;
+                existing.PartNumber = d.PartNumber;
+                existing.Manufacturer = d.Manufacturer;
+                existing.Supplier = d.Supplier;
+                existing.Description = d.Description;
+
+                // Údaje o vyřazení
+                existing.DisposalMethod = d.DisposalMethod;
+                existing.DisposalDate = string.IsNullOrWhiteSpace(d.DisposalDate) ? null : d.DisposalDate;
+                existing.DisposalPrice = d.DisposalPrice;
+                existing.DocumentNumber = d.DocumentNumber;
+
+                Db.Update(existing);
+
+                response.StatusCode = (int)HttpStatusCode.OK;
+                byte[] okBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true }));
+                response.ContentType = "application/json";
+                response.ContentLength64 = okBuffer.Length;
+                response.OutputStream.Write(okBuffer, 0, okBuffer.Length);
+                response.OutputStream.Close();
+            }
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine("Chyba při deserializaci JSON: " + ex.Message);
+            response.StatusCode = (int)HttpStatusCode.BadRequest;
+            byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = "Chyba při zpracování dat." }));
+            response.ContentLength64 = buffer.Length;
+            response.OutputStream.Write(buffer, 0, buffer.Length);
+            response.OutputStream.Close();
+        }
+    }
+
+    // Smazání položky majetku. Povoleno pouze, pokud nemá žádné odpisy.
+    public static void HandleDeleteAsset(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
+    {
+        int.TryParse(request.QueryString["assetNumber"], out int assetNumberId);
+        Asset asset = Db.Get(assetNumberId);
+
+        if (asset == null)
+        {
+            response.StatusCode = (int)HttpStatusCode.NotFound;
+            response.OutputStream.Close();
+            return;
+        }
+
+        if (asset.Depreciations != null && asset.Depreciations.Count > 0)
+        {
+            response.StatusCode = (int)HttpStatusCode.Conflict; // 409
+            byte[] errBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = "Nelze smazat majetek s vygenerovanými odpisy. Nejprve odpisy odstraňte (přegenerováním)." }));
+            response.ContentType = "application/json";
+            response.ContentLength64 = errBuffer.Length;
+            response.OutputStream.Write(errBuffer, 0, errBuffer.Length);
+            response.OutputStream.Close();
+            return;
+        }
+
+        Db.Delete(assetNumberId);
+
+        response.StatusCode = (int)HttpStatusCode.OK;
+        byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true }));
+        response.ContentType = "application/json";
+        response.ContentLength64 = buffer.Length;
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Close();
+    }
+
+    // Uloží příznaky "zadáno do daní" (Filed) u jednotlivých odpisů.
+    public static void HandleUpdateDepreciations(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
+    {
+        int.TryParse(request.QueryString["assetNumber"], out int assetNumberId);
+        Asset existing = Db.Get(assetNumberId);
+
+        if (existing == null)
+        {
+            response.StatusCode = (int)HttpStatusCode.NotFound;
+            response.OutputStream.Close();
+            return;
+        }
+
+        try
+        {
+            using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+            {
+                string json = reader.ReadToEnd();
+                var flags = JsonSerializer.Deserialize<List<Depreciation>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (flags != null && existing.Depreciations != null)
+                {
+                    foreach (var dep in existing.Depreciations)
+                    {
+                        var match = flags.FirstOrDefault(f => f.Year == dep.Year);
+                        if (match != null) dep.Filed = match.Filed;
+                    }
+                    Db.Update(existing);
+                }
+
+                response.StatusCode = (int)HttpStatusCode.OK;
+                byte[] okBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = true }));
+                response.ContentType = "application/json";
+                response.ContentLength64 = okBuffer.Length;
+                response.OutputStream.Write(okBuffer, 0, okBuffer.Length);
+                response.OutputStream.Close();
+            }
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine("Chyba při deserializaci JSON: " + ex.Message);
+            response.StatusCode = (int)HttpStatusCode.BadRequest;
+            response.OutputStream.Close();
+        }
+    }
+
     // Funkce pro generování odpisů
     public static void HandleGenerateDepreciations(HttpListenerRequest request, HttpListenerResponse response, string jsonFolder)
     {
@@ -874,9 +1040,18 @@ class Program
                 // Zkontrolujeme, zda je nějaký odpis již "aplikován" (uzavřené daňové období)
                 // Odpis za rok Y se aplikuje do 31.3. Y+1
                 bool anyApplied = false;
+                string blockMessage = "Nelze přegenerovat odpisy, některá období jsou již uzavřena.";
                 DateTime now = DateTime.Now;
                 foreach (var dep in asset.Depreciations)
                 {
+                    // Odpis explicitně označený jako zadaný do daní nelze přegenerovat.
+                    if (dep.Filed)
+                    {
+                        anyApplied = true;
+                        blockMessage = "Nelze přegenerovat odpisy – některé jsou označené jako zadané do daní. Nejprve odškrtněte příznak.";
+                        break;
+                    }
+
                     DateTime applicationDeadline = new DateTime(dep.Year + 1, 3, 31);
                     if (now > applicationDeadline)
                     {
@@ -888,7 +1063,7 @@ class Program
                 if (anyApplied)
                 {
                     response.StatusCode = (int)HttpStatusCode.Conflict; // 409 Conflict
-                    byte[] errorBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = "Nelze přegenerovat odpisy, některá období jsou již uzavřena." }));
+                    byte[] errorBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { success = false, message = blockMessage }));
                     response.ContentLength64 = errorBuffer.Length;
                     response.OutputStream.Write(errorBuffer, 0, errorBuffer.Length);
                     response.OutputStream.Close();
@@ -1449,6 +1624,11 @@ class Program
 
         [JsonPropertyName("amount")]
         public decimal Amount { get; set; }
+
+        // Uživatelské označení, že odpis za daný rok byl již uplatněn v daňovém
+        // přiznání. Zamezuje přegenerování už zadaných odpisů.
+        [JsonPropertyName("filed")]
+        public bool Filed { get; set; }
     }
 
     public class DepreciationGroup
