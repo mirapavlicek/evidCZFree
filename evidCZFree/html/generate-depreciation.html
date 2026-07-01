@@ -73,6 +73,7 @@
                         <tr>
                             <th>Rok</th>
                             <th>Odpisovaná částka (Kč)</th>
+                            <th>Zadáno do daní</th>
                         </tr>
                     </thead>
                     <tbody id="depreciationsTable">
@@ -120,14 +121,58 @@
                 .catch(error => console.error('Chyba při načítání dat majetku:', error));
         }
 
-        // Funkce pro zobrazení odpisů
+        // Funkce pro zobrazení odpisů (vč. zaškrtávátka "zadáno do daní")
         function displayDepreciations(depreciations) {
             const tableBody = document.getElementById('depreciationsTable');
             tableBody.innerHTML = ''; // Vyčistit tabulku před zobrazením
+            const currency = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 });
             depreciations.forEach(depreciation => {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td>${depreciation.year}</td><td>${depreciation.amount}</td>`;
+                const checked = depreciation.filed ? 'checked' : '';
+                row.innerHTML = `
+                    <td>${depreciation.year}</td>
+                    <td>${currency.format(depreciation.amount)}</td>
+                    <td>
+                        <label>
+                            <input type="checkbox" class="filled-in filed-checkbox" data-year="${depreciation.year}" ${checked} />
+                            <span></span>
+                        </label>
+                    </td>`;
                 tableBody.appendChild(row);
+            });
+
+            // Uložení příznaku ihned po změně
+            document.querySelectorAll('.filed-checkbox').forEach(cb => {
+                cb.addEventListener('change', saveFiledFlags);
+            });
+        }
+
+        // Uloží příznaky "zadáno do daní" pro všechny odpisy
+        function saveFiledFlags() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const assetNumber = urlParams.get('assetNumber');
+
+            const flags = Array.from(document.querySelectorAll('.filed-checkbox')).map(cb => ({
+                year: parseInt(cb.getAttribute('data-year'), 10),
+                filed: cb.checked
+            }));
+
+            fetch(`/update-depreciations?assetNumber=${assetNumber}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(flags)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({ html: 'Uloženo', classes: 'green' });
+                } else {
+                    M.toast({ html: 'Uložení se nezdařilo', classes: 'red' });
+                }
+            })
+            .catch(error => {
+                console.error('Chyba při ukládání příznaku:', error);
+                M.toast({ html: 'Chyba při ukládání', classes: 'red' });
             });
         }
 
